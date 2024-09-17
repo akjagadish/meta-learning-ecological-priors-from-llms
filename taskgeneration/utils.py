@@ -201,13 +201,13 @@ def pool_tasklabels(path_to_dir, run_gpt, model, num_dim, num_tasks, num_runs, p
     df.to_csv(f'{path_to_dir}/{run_gpt}_generated_tasklabels_params{model}_dim{num_dim}_tasks{num_tasks}_pversion{prompt_version}.csv')
 
 
-def pool_synthesisedproblems(path_to_dir, run_gpt, model, num_dim, num_tasks, num_runs, proc_id, prompt_version, num_targets=1, file_name=None):
+def pool_synthesisedproblems(path_to_dir, task, run_gpt, model, num_dim, num_tasks, num_runs, proc_id, prompt_version, num_targets=1, file_name=None):
     df, last_task_id = None, 0
     for run_id in range(num_runs):
         data = None
         try:
             # filename = f'{run_gpt}_generated_tasklabels_params{model}_dim{num_dim}_tasks{num_tasks}_run{run_id}_procid{proc_id}_pversion{prompt_version}'
-            filename = f'{run_gpt}_synthesized_functionlearning_problems_params{model}_dim{num_dim}_tasks{num_tasks}_run{run_id}_procid{proc_id}_pversion{prompt_version}'
+            filename = f'{run_gpt}_synthesized_{task}_problems_params{model}_dim{num_dim}_tasks{num_tasks}_run{run_id}_procid{proc_id}_pversion{prompt_version}'
             data = pd.read_csv(f'{path_to_dir}/{filename}.csv')
         except:
             print(f'error loading {filename}')
@@ -233,7 +233,7 @@ def pool_synthesisedproblems(path_to_dir, run_gpt, model, num_dim, num_tasks, nu
     num_tasks = df.task_id.max()+1
     # df.feature_names = df['feature_names'].apply(lambda x: eval(x))
     # df.category_names = df['category_names'].apply(lambda x: eval(x))
-    df.to_csv(f'{path_to_dir}/{run_gpt}_synthesized_functionlearning_problems_params{model}_dim{num_dim}_tasks{num_tasks}_pversion{prompt_version}.csv')
+    df.to_csv(f'{path_to_dir}/{run_gpt}_synthesized_{task}_problems_params{model}_dim{num_dim}_tasks{num_tasks}_pversion{prompt_version}.csv')
 
 
 def retrieve_features_and_categories(path, file_name, task_id):
@@ -283,6 +283,14 @@ def get_regex_patterns(num_dim, use_generated_tasklabels, prompt_version):
                                 r"\[([0-9]\.[0-9]{2}),(0\.[0-9]{2}),(0\.[0-9]{2})\],(A|B)",
                                 r"(\d+\.\d+),(\d+\.\d+),(\d+\.\d+),([A-Z])"
                                 ]
+    elif num_dim == 2 and prompt_version == 5:
+        regex_expressions = [r'^(\d+):([\d.]+),([\d.]+),([\w]+)',
+                             r'^(\d+):([\w\-]+),([\w\-]+),([\w]+)',
+                             r'^(\d+):([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+)',
+                             r'^(\d+):([^,]+),([^,]+),([^,]+)',
+                             r'^(\d+):([^,\n]+),([^,\n]+),([^,\n]+)',
+                             r'^(\d+):(?:.*?:)?([^,-]+),([^,-]+),([^,-]+)',
+                             r'^(\d+):([^,-]+),([^,-]+),([^,-]+)']
     elif num_dim == 3 and prompt_version == 4:
         regex_expressions = [r'([\d.]+),([\d.]+),([\d.]+),([\w]+)',
                              r'([\w\-]+),([\w\-]+),([\w\-]+),([\w]+)',
@@ -325,13 +333,60 @@ def get_all_regex_patterns(num_dim, prompt_version, task_name):
     Returns:
         patterns: list of regex patterns
     '''
-
     if task_name == 'functionlearning':
-        assert (prompt_version == 2) or (prompt_version ==
-                                         'ranked') or (prompt_version ==
-                                                       'direction') or (prompt_version ==
-                                                                        'unknown'), 'only prompt versions 2, ranked, unknown, and direction are supported for function learning'
+        assert (prompt_version == 'v2') or (prompt_version ==
+                                              'ranked') or (prompt_version ==
+                                                            'direction') or (prompt_version ==
+                                                                             'unknown'), 'only prompt versions 2, ranked, unknown, and direction are supported for function learning'
         regex_expressions = [r'([\d.]+),' * num_dim + r'([\d.]+)']
+
+    elif task_name == 'categorisation':
+        if num_dim == 2:
+             if  int(prompt_version) == 5:
+                regex_expressions = [r'^(\d+):([\d.]+),([\d.]+),([\w]+)',
+                                    r'^(\d+):([\w\-]+),([\w\-]+),([\w]+)',
+                                    r'^(\d+):([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+)',
+                                    r'^(\d+):([^,]+),([^,]+),([^,]+)',
+                                    r'^(\d+):([^,\n]+),([^,\n]+),([^,\n]+)',
+                                    r'^(\d+):(?:.*?:)?([^,-]+),([^,-]+),([^,-]+)',
+                                    r'^(\d+):([^,-]+),([^,-]+),([^,-]+)']
+        if num_dim == 3:
+            if  int(prompt_version) == 5:
+                regex_expressions = [
+                                    r'^(\d+):([\d.]+),([\d.]+),([\d.]+),([\w]+)',
+                                    r'^(\d+):([\w\-]+),([\w\-]+),([\w\-]+),([\w]+)',
+                                    r'^(\d+):([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+)',
+                                    r'^(\d+):([^,]+),([^,]+),([^,]+),([^,]+)',
+                                    r'^(\d+):([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+)',
+                                    r'^(\d+):(?:.*?:)?([^,-]+),([^,-]+),([^,-]+),([^,-]+)',
+                                    r'^(\d+):([^,-]+),([^,-]+),([^,-]+),([^,-]+)',
+                                    ]
+            elif  int(prompt_version) == 4:
+                regex_expressions = [r'([\d.]+),([\d.]+),([\d.]+),([\w]+)',
+                                    r'([\w\-]+),([\w\-]+),([\w\-]+),([\w]+)',
+                                    r'([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+)',
+                                    r'([^,]+),([^,]+),([^,]+),([^,]+)',
+                                    r'([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+)',
+                                    r'(?:.*?:)?([^,-]+),([^,-]+),([^,-]+),([^,-]+)',
+                                    r'([^,-]+),([^,-]+),([^,-]+),([^,-]+)',]
+        elif num_dim == 6 and int(prompt_version) == 5:
+            regex_expressions = [r'^(\d+):([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\w]+)',
+                                r'^(\d+):([\w\-]+),([\w\-]+),([\w\-]+),([\w\-]+),([\w\-]+),([\w\-]+),([\w]+)',
+                                r'^(\d+):([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+)',
+                                r'^(\d+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)',
+                                r'^(\d+):([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+)',
+                                r'^(\d+):(?:.*?:)?([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+)',
+                                r'^(\d+):([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+)',]
+
+        elif num_dim == 4 and int(prompt_version) == 5:
+            regex_expressions = [r'^(\d+):([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\w]+)',
+                                r'^(\d+):([\w\-]+),([\w\-]+),([\w\-]+),([\w\-]+),([\w]+)',
+                                r'^(\d+):([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+),([-\w\d,.]+)',
+                                r'^(\d+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)',
+                                r'^(\d+):([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+),([^,\n]+)',
+                                r'^(\d+):(?:.*?:)?([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+)',
+                                r'^(\d+):([^,-]+),([^,-]+),([^,-]+),([^,-]+),([^,-]+)']
+    
     else:
         raise NotImplementedError
     patterns = regex_expressions

@@ -5,9 +5,9 @@ import torch
 import torch.nn.utils.rnn as rnn_utils
 from torch.distributions import Beta, Bernoulli, Categorical, MultivariateNormal
 import torch.multiprocessing as mp
+from sklearn.preprocessing import MinMaxScaler
 from model_utils import MLP
 import math
-from pyro.distributions.lkj import LKJCorrCholesky
 SYS_PATH = '/u/ajagadish/ermi/'
 
 
@@ -16,7 +16,7 @@ class FunctionlearningTask(nn.Module):
     Function learning
     """
 
-    def __init__(self, data, max_steps=20, sample_to_match_max_steps=False, num_dims=3, batch_size=64, mode='train', split=[0.8, 0.1, 0.1], device='cpu', num_tasks=10000, noise=0., shuffle_trials=False, shuffle_features=True, normalize_inputs=True):
+    def __init__(self, data, max_steps=20, sample_to_match_max_steps=False, num_dims=3, scale=0.5, batch_size=64, mode='train', split=[0.8, 0.1, 0.1], device='cpu', num_tasks=10000, noise=0., shuffle_trials=False, shuffle_features=True, normalize_inputs=True):
         """
         Initialise the environment
         Args:
@@ -39,6 +39,7 @@ class FunctionlearningTask(nn.Module):
         self.batch_size = batch_size
         self.num_dims = num_dims
         self.mode = mode
+        self.scale = scale
         self.split = (torch.tensor(
             [split[0], split[0]+split[1], split[0]+split[1]+split[2]]) * self.data.task_id.nunique()).int()
         self.noise = noise
@@ -83,13 +84,14 @@ class FunctionlearningTask(nn.Module):
         data['shifted_target'] = data['target'].apply(
             lambda x: [1. if torch.rand(1) > 0.5 else 0.] + x[:-1])
 
-        def stacked_normalized(data):
+        def stacked_normalized(data, scale):
             data = np.stack(data)
-            return (data - data.min())/(data.max() - data.min()+1e-6)
-        stacked_task_features = [torch.from_numpy(np.concatenate((stacked_normalized(task_input_features) if self.normalize else np.stack(task_input_features), stacked_normalized(
-            task_targets).reshape(-1, 1) if self.normalize else np.stack(task_targets).reshape(-1, 1)), axis=1)) for task_input_features, task_targets in zip(data.input.values, data.shifted_target.values)]
+            return 2 * scale * (data - data.min())/(data.max() - data.min() + 1e-6) - scale
+        
+        stacked_task_features = [torch.from_numpy(np.concatenate((stacked_normalized(task_input_features, self.scale) if self.normalize else np.stack(task_input_features), stacked_normalized(
+            task_targets, self.scale).reshape(-1, 1) if self.normalize else np.stack(task_targets).reshape(-1, 1)), axis=1)) for task_input_features, task_targets in zip(data.input.values, data.shifted_target.values)]
         stacked_targets = [torch.from_numpy(
-            stacked_normalized(task_targets) if self.normalize else np.stack(task_targets)) for task_targets in data.target.values]
+            stacked_normalized(task_targets, self.scale) if self.normalize else np.stack(task_targets)) for task_targets in data.target.values]
         sequence_lengths = [len(task_input_features)
                             for task_input_features in data.input.values]
         packed_inputs = rnn_utils.pad_sequence(
@@ -179,15 +181,15 @@ class DecisionmakingTask(nn.Module):
 
         def stacked_normalized(data):
             data = np.stack(data)
-            return (data - data.min(axis=0))/(data.max(axis=0) - data.min(axis=0) + 1e-6)
+            return (data - data.mean(axis=0))/(data.std(axis=0) + 1e-6)
 
         stacked_task_features = []
         for task_input_features, task_targets in zip(data.input.values, data.target.values):
             if self.normalize:
-                input_features = stacked_normalized(np.diff(np.stack(task_input_features).reshape(
-                    2, self.max_steps // 2, self.num_dims), axis=0).squeeze())
-                targets = stacked_normalized(np.diff(
-                    np.stack(task_targets).reshape(-1, 1).reshape(2, self.max_steps // 2, 1), axis=0).squeeze(0))
+                input_features = np.diff(stacked_normalized(np.stack(task_input_features)).reshape(
+                    2, self.max_steps // 2, self.num_dims), axis=0).squeeze()
+                targets = np.diff(np.stack(
+                    task_targets).reshape(-1, 1).reshape(2, self.max_steps // 2, 1), axis=0).squeeze(0)
             else:
                 input_features = np.diff(np.stack(task_input_features).reshape(
                     2, self.max_steps // 2, self.num_dims), axis=0).squeeze()
@@ -200,7 +202,8 @@ class DecisionmakingTask(nn.Module):
             stacked_task_features.append(torch_features)
 
         stacked_task_features = torch.stack(stacked_task_features)
-        stacked_task_features[..., -1] = stacked_task_features[..., -1] > 0.5
+        stacked_task_features[..., -1] = stacked_task_features[..., -
+                                                               1] > 0. if torch.rand(1) > 0.5 else stacked_task_features[..., -1] < 0.
         stacked_targets = stacked_task_features[..., -1].clone()
 
         if not paired:
@@ -241,7 +244,8 @@ class SyntheticDecisionmakingTask(nn.Module):
 
         self.sigma = math.sqrt(0.01)
         self.theta = 1.0 * torch.ones(num_dims)
-        self.cov_prior = LKJCorrCholesky(num_dims, eta=2.0 * torch.ones(1))
+        from pyro.distributions.lkj import LKJCorrCholesky
+        self.cov_prior = LKJCorrCholesky(num_dims, eta=2.0 * torch.ones([]))
 
         self.mode = mode
         self.batch_size = batch_size if mode == 'train' else 1000
@@ -269,46 +273,37 @@ class SyntheticDecisionmakingTask(nn.Module):
 
         return inputs, targets, inputs_a, inputs_b
 
+    def sample_pair_vectorised(self):
+        weights = torch.randn(self.batch_size, self.num_dims, device=self.device)
+        if self.direction:
+            weights = weights.abs()
+        elif self.ranking:
+            absolutes = torch.abs(weights)
+            _, feature_perm = torch.sort(absolutes, dim=1, descending=True)
+            weights = weights.gather(1, feature_perm)
+
+        self.weights = weights.clone()
+        L = self.cov_prior.sample([self.batch_size]).to(self.device) 
+        while torch.isnan(L).any():
+            L = self.cov_prior.sample([self.batch_size]).to(self.device)
+
+        inputs_a = MultivariateNormal(torch.zeros(self.batch_size, self.num_dims, device=self.device), scale_tril=L).sample([self.max_steps])
+        inputs_b = MultivariateNormal(torch.zeros(self.batch_size, self.num_dims, device=self.device), scale_tril=L).sample([self.max_steps])
+        inputs = inputs_a - inputs_b
+
+        targets = torch.bernoulli(0.5 * torch.erfc(-(weights * inputs).sum(-1, keepdim=True) / (2 * self.sigma)))
+        return inputs.detach().to(self.device), targets.detach().to(self.device), inputs_a.detach().to(self.device), inputs_b.detach().to(self.device)
+ 
     def sample_batch(self, paired=False):
-        support_inputs = torch.zeros(
-            self.max_steps, self.batch_size, self.num_dims)
-        stacked_task_features = torch.zeros(
-            self.max_steps, self.batch_size, self.num_dims+self.num_choices)
-        support_inputs_a = torch.zeros(
-            self.max_steps, self.batch_size, self.num_dims)
-        support_inputs_b = torch.zeros(
-            self.max_steps, self.batch_size, self.num_dims)
-        support_targets = torch.zeros(
-            self.max_steps, self.batch_size, self.num_choices)
-        self.weights = torch.zeros(self.batch_size, self.num_dims)
-
-        for i in range(self.batch_size):
-            if self.direction:
-                weights = torch.randn(self.num_dims).abs()
-            else:
-                weights = torch.randn(self.num_dims)
-
-            if self.ranking:
-                absolutes = torch.abs(weights)
-                _, feature_perm = torch.sort(absolutes, dim=0, descending=True)
-                weights = weights[feature_perm]
-
-            L = self.cov_prior.sample()
-            self.weights[i] = weights.clone()
-            for j in range(self.max_steps):
-                support_inputs[j, i], support_targets[j, i], support_inputs_a[j,
-                                                                              i], support_inputs_b[j, i] = self.sample_pair(weights, L)
+        stacked_task_features = torch.empty(
+             self.max_steps, self.batch_size, self.num_dims+self.num_choices, device=self.device)
+        support_inputs, support_targets, support_inputs_a, support_inputs_b = self.sample_pair_vectorised()
 
         # this is a shitty hack to fix an earlier bug
         if self.direction and not self.synthesize_tasks:
             support_targets = 1 - support_targets
 
         sequence_lengths = [self.max_steps] * self.batch_size
-
-        # max-min normalization each feature
-        support_inputs = (support_inputs - support_inputs.min(axis=0).values) / \
-            (support_inputs.max(axis=0).values -
-             support_inputs.min(axis=0).values + 1e-6)
 
         stacked_task_features[..., :self.num_dims] = support_inputs
 
@@ -328,7 +323,7 @@ class SyntheticDecisionmakingTask(nn.Module):
             stacked_task_features, batch_first=True)
 
         # support_inputs_a.detach().to(device), support_inputs_b.detach().to(device)
-        return packed_inputs.detach().to(self.device), sequence_lengths, stacked_targets.detach().to(self.device)
+        return packed_inputs.detach().to(self.device), sequence_lengths, stacked_targets.detach().to(self.device).squeeze(2)
 
     def save_synthetic_data(self, num_tasks=5000, paired=True):
 
@@ -409,10 +404,6 @@ class Binz2022(nn.Module):
             human_targets = data_participant_per_task.choice.values
             targets = data_participant_per_task.target.values
 
-            # max-min normalization each feature
-            input_features = (input_features - input_features.min(axis=0)) / \
-                (input_features.max(axis=0) - input_features.min(axis=0) + 1e-6)
-
             # flip targets and humans choices
             # if np.random.rand(1) > 0.5:
             #     targets = 1. - targets
@@ -438,9 +429,240 @@ class Binz2022(nn.Module):
         return inputs_list, targets_list, human_targets_list
 
 
-class Devraj2022(nn.Module):
-    pass
-
-
 class Badham2017(nn.Module):
-    pass
+    """
+    load human data from Badham et al. 2017
+    """
+    
+    def __init__(self, noise=0., return_prototype=False, device='cpu'):
+        super(Badham2017, self).__init__()
+        DATA_PATH = f'{SYS_PATH}/categorisation/data/human'
+        self.device = torch.device(device)
+        self.data = pd.read_csv(f'{DATA_PATH}/badham2017deficits.csv')
+        self.num_choices = 1 
+        self.num_dims = 3
+        self.noise = noise
+        self.return_prototype = return_prototype
+
+    def sample_batch(self, participant, paired=False):
+    
+        stacked_task_features, stacked_targets, stacked_human_targets, stacked_prototypes = self.get_participant_data(participant)
+        sequence_lengths = [len(data)for data in stacked_task_features]
+        packed_inputs = rnn_utils.pad_sequence(stacked_task_features, batch_first=True)
+        padded_targets = rnn_utils.pad_sequence(stacked_targets, batch_first=True)
+        padded_human_targets = rnn_utils.pad_sequence(stacked_human_targets, batch_first=True)
+
+        if self.return_prototype:
+            return packed_inputs, sequence_lengths, padded_targets, padded_human_targets, stacked_prototypes, None
+        else:
+            return packed_inputs, sequence_lengths, padded_targets, padded_human_targets, None
+
+    def get_participant_data(self, participant):
+        
+        inputs_list, targets_list, human_targets_list, prototype_list = [], [], [], []
+    
+        # get data for the participant
+        data_participant = self.data[self.data['participant']==participant]
+        conditions = np.unique(data_participant['condition'])
+        for task_type in conditions:
+            
+            # get features and targets for the task
+            input_features = np.stack([eval(val) for val in data_participant[data_participant.condition==task_type].all_features.values])
+            human_choices = data_participant[data_participant.condition==task_type].choice
+            true_choices = data_participant[data_participant.condition==task_type].correct_choice
+            
+            # convert human choices to 0s and 1s
+            targets = np.array([1. if choice=='j' else 0. for choice in true_choices])
+            human_targets = np.array([1. if choice=='j' else 0. for choice in human_choices])
+
+            # flip features, targets and humans choices 
+            if np.random.rand(1) > 0.5:
+                input_features = 1. - input_features
+                targets = 1. - targets  
+                human_targets = 1. - human_targets
+
+            # concatenate all features and targets into one array with placed holder for shifted target
+            sampled_data = np.concatenate((input_features, targets.reshape(-1, 1), targets.reshape(-1, 1)), axis=1)
+            
+            # replace placeholder with shifted targets to the sampled data array
+            sampled_data[:, self.num_dims] = np.concatenate((np.array([0. if np.random.rand(1) > 0.5 else 1.]), sampled_data[:-1, self.num_dims]))
+            
+            # stacking all the sampled data across all tasks
+            inputs_list.append(torch.from_numpy(sampled_data[:, :(self.num_dims+1)]))
+            targets_list.append(torch.from_numpy(sampled_data[:, [self.num_dims+1]]))
+            human_targets_list.append(torch.from_numpy(human_targets.reshape(-1, 1)))
+
+            # compute mean of each features for a category
+            prototype_list.append([np.mean(input_features[targets==0], axis=0), np.mean(input_features[targets==1], axis=0)])
+
+     
+        return inputs_list, targets_list, human_targets_list, prototype_list  
+       
+
+class Devraj2022(nn.Module):
+    """
+    load human data from categorisation task by Devraj 2022 
+    """
+    
+    def __init__(self, noise=0., return_prototype=False, device='cpu'):
+        super(Devraj2022, self).__init__()
+        DATA_PATH = f'{SYS_PATH}/categorisation/data/human'
+        self.device = torch.device(device)
+        self.data = pd.read_csv(f'{DATA_PATH}/devraj2022rational.csv')
+        self.data = self.data[self.data.condition=='control']
+        self.num_choices = 1 
+        self.num_dims = 6
+        self.noise = noise
+        self.return_prototype = return_prototype
+
+    def sample_batch(self, participant, paired=False):
+    
+        stacked_task_features, stacked_targets, stacked_human_targets, stacked_prototypes, stacked_stimulus_ids = self.get_participant_data(participant)
+        sequence_lengths = [len(data)for data in stacked_task_features]
+        packed_inputs = rnn_utils.pad_sequence(stacked_task_features, batch_first=True)
+        padded_targets = rnn_utils.pad_sequence(stacked_targets, batch_first=True)
+        padded_human_targets = rnn_utils.pad_sequence(stacked_human_targets, batch_first=True)
+        padded_stimulus_ids = rnn_utils.pad_sequence(stacked_stimulus_ids, batch_first=True)
+
+        if self.return_prototype:
+            return packed_inputs, sequence_lengths, padded_targets, padded_human_targets, stacked_prototypes, padded_stimulus_ids
+        else:
+            return packed_inputs, sequence_lengths, padded_targets, padded_human_targets, padded_stimulus_ids
+        
+    def get_participant_data(self, participant):
+        
+        inputs_list, targets_list, human_targets_list, prototype_list, stimulus_id_list = [], [], [], [], []
+    
+        # get data for the participant
+        data_participant = self.data[self.data['participant']==participant]
+        conditions = np.unique(data_participant['condition'])
+        for condition in conditions:
+            
+            # get features and targets for the task
+            input_features = np.stack([eval(val) for val in data_participant[data_participant.condition==condition].all_features.values])
+            human_choices = data_participant[data_participant.condition==condition].choice.values
+            true_choices = data_participant[data_participant.condition==condition].correct_choice.values
+            
+            # covert to 0 or 1 indexing
+            targets = true_choices#-1
+            human_targets = human_choices#-1
+
+            # flip features, targets and humans choices 
+            if np.random.rand(1) > 0.5:
+                input_features = 1. - input_features
+                targets = 1. - targets  
+                human_targets = 1. - human_targets
+
+            # concatenate all features and targets into one array with placed holder for shifted target
+            sampled_data = np.concatenate((input_features, targets.reshape(-1, 1), targets.reshape(-1, 1)), axis=1)
+            
+            # replace placeholder with shifted targets to the sampled data array
+            sampled_data[:, self.num_dims] = np.concatenate((np.array([0. if np.random.rand(1) > 0.5 else 1.]), sampled_data[:-1, self.num_dims]))
+            
+            # stacking all the sampled data across all tasks
+            inputs_list.append(torch.from_numpy(sampled_data[:, :(self.num_dims+1)]))
+            targets_list.append(torch.from_numpy(sampled_data[:, [self.num_dims+1]]))
+            human_targets_list.append(torch.from_numpy(human_targets.reshape(-1, 1)))
+
+            # concatenate values from columns 'prototype_feature1' to 'prototype_feature6' from data_participant[data_participant.condition==condition]
+            columns  = [f'prototype_feature{i+1}' for i in range(self.num_dims)]
+            data_condition = data_participant[data_participant.condition==condition]
+            category_prototypes = []
+            for category in np.unique(data_condition.category):
+                category_prototypes.append(np.array([val for val in data_condition[data_condition.category==category][columns].values[0]]))
+            prototype_list.append(category_prototypes)
+
+            # stack all stimuli_id across all tasks
+            stimulus_id_list.append(torch.from_numpy(data_condition.stimulus_id.values.reshape(-1, 1)))
+
+        return inputs_list, targets_list, human_targets_list, prototype_list, stimulus_id_list 
+
+class Little2022(nn.Module):
+    """
+    load human data from Badham et al. 2017
+    """
+    
+    def __init__(self, noise=0., return_true_values=True, scale=0.5, device='cpu'):
+        super(Little2022, self).__init__()
+        DATA_PATH = f'{SYS_PATH}/functionlearning/data/human'
+        self.device = torch.device(device)
+        self.data = pd.read_csv(f'{DATA_PATH}/little2022functionestimation.csv')
+        # filter participants with less than 24 tasks
+        self.data = self.data.groupby('participant').filter(lambda x: len(x.task.unique()) == 24) 
+
+        # Function to scale 'x' and 'y' for each participant and task
+        def scale_participant_task_data(group):
+            scaler = MinMaxScaler(feature_range=(-scale, scale))
+            group[['x', 'y']] = scaler.fit_transform(group[['x', 'y']])
+            return group
+
+        # Apply scaling to each participant and task group
+        self.data = self.data.groupby(['participant', 'task']).apply(scale_participant_task_data).reset_index(drop=True)
+
+        self.num_dims = 1
+        self.num_choices = 1
+        self.return_true_values = return_true_values
+        #TODO: provice these contraints a bit better
+        num_points = 24 # 6 or 24
+        scale = 2 # 1 is zoomed in or 2 is zoomed out
+        self.sampling_rate = 48
+        self.data = self.data[(self.data.num_points==num_points) & (self.data.scale==scale)]
+        self.noise = noise
+
+    def sample_batch(self, participant, paired=False):
+    
+        stacked_task_features, stacked_targets, stacked_human_targets, stacked_true_data = self.get_participant_data(participant, paired)
+        sequence_lengths = [len(data)for data in stacked_task_features]
+        packed_inputs = rnn_utils.pad_sequence(stacked_task_features, batch_first=True)
+        padded_targets = rnn_utils.pad_sequence(stacked_targets, batch_first=True)
+        padded_human_targets = rnn_utils.pad_sequence(stacked_human_targets, batch_first=True)
+
+        if self.return_true_values:
+            return packed_inputs, sequence_lengths, padded_targets, padded_human_targets, stacked_true_data
+        else:
+            return packed_inputs, sequence_lengths, padded_targets, padded_human_targets
+
+    def get_participant_data(self, participant, paired):
+        
+        inputs_list, targets_list, human_targets_list, true_data_list = [], [], [], []
+    
+        # get data for the participant
+        data_participant = self.data[self.data['participant']==participant]
+        tasks = np.unique(data_participant['task'])\
+        
+
+        for task_id in tasks:
+            
+            # get features and targets shown to participants for the task
+            train_condition = (data_participant.task==task_id) & (data_participant.type=='train')
+            train_features = data_participant[train_condition].x.values.reshape(-1,1)
+            train_preds = data_participant[train_condition].y.values.reshape(-1,1)
+            true_values = np.concatenate((train_features, train_preds), axis=1)  # concatenate train features and preds as two columns
+
+            # get the predictions made by the participants
+            test_condition = (data_participant.task==task_id) & (data_participant.type=='test')
+            test_features =  data_participant[test_condition].x.values[::self.sampling_rate].reshape(-1,1)
+            test_preds = data_participant[test_condition].y.values[::self.sampling_rate].reshape(-1,1)
+            pred_values = np.concatenate((test_features, test_preds), axis=1)
+
+            for (x_test, y_test) in zip(test_features, test_preds):
+
+                input_features = np.concatenate((train_features, x_test.reshape(-1,1)), axis=0)
+                targets = np.concatenate((train_preds, y_test.reshape(-1,1)), axis=0)
+
+                # concatenate all features and targets into one array with placed holder for shifted target
+                sampled_data = np.concatenate((input_features, targets, targets), axis=1)
+                
+                if not paired:
+                    # replace placeholder with shifted targets to the sampled data array
+                    sampled_data[:, self.num_dims] = np.concatenate((np.array([targets.mean()]), sampled_data[:-1, self.num_dims]))
+                    
+                # stacking all the sampled data across all tasks
+                inputs_list.append(torch.from_numpy(sampled_data[:, :(self.num_dims+1)]))
+                targets_list.append(torch.from_numpy(sampled_data[:, [self.num_dims+1]]))
+            
+            human_targets_list.append(torch.from_numpy(pred_values))
+            true_data_list.append(true_values)
+     
+        return inputs_list, targets_list, human_targets_list, true_data_list  
+

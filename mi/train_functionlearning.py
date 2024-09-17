@@ -40,19 +40,6 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, synthetic,
     for t in tqdm(range(start_id, int(num_episodes))):
         # TODO: nll loss only works for sample_to_match_max_steps=True
         packed_inputs, sequence_lengths, targets = env.sample_batch()
-        # if loss == 'mse':  # mse loss
-        #     model_choices = model(packed_inputs, sequence_lengths)
-        #     model_choices = torch.concat([model_choices[i, :seq_len] for i, seq_len in enumerate(
-        #         sequence_lengths)], axis=0).squeeze().float()
-        #     true_choices = torch.concat(targets, axis=0).float().to(device)
-        #     loss = model.compute_loss(model_choices, true_choices)
-        # elif loss == 'nll':  # nll loss
-        #     predictive_posterior = model(packed_inputs, sequence_lengths)
-        #     loss = - \
-        #         predictive_posterior.log_prob(
-        #             torch.stack(targets).unsqueeze(2).float().to(device)).mean()
-        # else:
-        #     raise ValueError('loss must be either mse or nll')
         loss = model.compute_loss(packed_inputs, targets, sequence_lengths)
 
         # backprop
@@ -67,7 +54,8 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, synthetic,
             writer.add_scalar('Loss', loss, t)
 
         if (not t % save_every):
-            torch.save([t, model], save_dir)
+            # save optimizer
+            torch.save([t, model.state_dict()], save_dir)#, elbo
             experiment = 'synthetic' if synthetic else 'llm_generated'
             acc = evaluate_regression(env_name=env_name, model_path=save_dir, experiment=experiment,
                                       env=env, model=model, mode='val', loss='mse', shuffle_trials=shuffle, max_steps=max_steps, nonlinear=nonlinear, num_dims=num_dims, device=device)
@@ -110,6 +98,8 @@ if __name__ == "__main__":
                         default=False, help='disables CUDA training')
     parser.add_argument(
         '--env-name', required=True, help='name of the environment')
+    parser.add_argument('--env-type', default=None, 
+                        help='name of the environment when name of the dataset does not explain the model fully')
     parser.add_argument(
         '--env-dir', help='name of the environment', required=True)
     parser.add_argument(
@@ -138,18 +128,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")  # "cpu" #
-    # if args.env_name is None else args.env_name
-    env_name = f'/{args.env_dir}/{args.env_name}.csv'
+    env = f'{args.env_name}_dim{args.num_dims}' if args.synthetic else args.env_name if args.env_type is None else args.env_type
+    
 
     for i in range(args.runs):
 
-        save_dir = f'{args.save_dir}env={args.env_name}_model={args.model_name}_num_episodes{str(args.num_episodes)}_num_hidden={str(args.num_hidden)}_lr{str(args.lr)}_num_layers={str(args.num_layers)}_d_model={str(args.d_model)}_num_head={str(args.num_head)}_noise{str(args.noise)}_shuffle{str(args.shuffle)}_run={str(args.first_run_id + i)}.pt'
+        save_dir = f'{args.save_dir}env={env}_model={args.model_name}_num_episodes{str(args.num_episodes)}_num_hidden={str(args.num_hidden)}_lr{str(args.lr)}_num_layers={str(args.num_layers)}_d_model={str(args.d_model)}_num_head={str(args.num_head)}_noise{str(args.noise)}_shuffle{str(args.shuffle)}_run={str(args.first_run_id + i)}.pt'
 
-        if args.synthetic:
-            save_dir = save_dir.replace(
-                '.pt', f'_synthetic{"nonlinear" if args.nonlinear else ""}.pt')
+        save_dir = save_dir.replace(
+                '.pt', f'_synthetic.pt') if args.synthetic else save_dir
         save_dir = save_dir.replace(
             '.pt', '_test.pt') if args.test else save_dir
+        env_name = f'/{args.env_dir}/{args.env_name}.csv' if not args.synthetic else None
 
         run(env_name, args.restart_training, args.restart_episode_id, args.num_episodes, args.synthetic, args.nonlinear, args.num_dims, args.max_steps, args.sample_to_match_max_steps,
             args.noise, args.shuffle, args.shuffle_features, args.print_every, args.save_every, args.num_hidden, args.num_layers, args.d_model, args.num_head, args.loss, save_dir, device, args.lr, args.batch_size)
