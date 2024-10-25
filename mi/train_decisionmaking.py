@@ -6,7 +6,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import wandb
 from envs import DecisionmakingTask, SyntheticDecisionmakingTask
-from model import TransformerDecoderClassification, TransformerDecoderLinearWeights
+from model import TransformerDecoderClassification, TransformerDecoderLinearWeights_depr
 import argparse
 from tqdm import tqdm
 from evaluate import evaluate_classification
@@ -16,7 +16,6 @@ from model_utils import get_wd_from_std, compute_elbo, annealed_ess, compute_kld
 
 def run(env_name, paired, restart_training, restart_episode_id, num_episodes, train_samples, ess, ess_init, annealing_fraction, std, synthetic, ranking, direction, num_dims, max_steps, sample_to_match_max_steps, noise, shuffle, shuffle_features, print_every, save_every, num_hidden, num_layers, d_model, num_head, loss_fn, save_dir, device, lr, path_to_init_weights, regularize, batch_size=64):
 
-    writer = SummaryWriter('runs/' + save_dir)
     if synthetic:
         env = SyntheticDecisionmakingTask(num_dims=num_dims, max_steps=max_steps, batch_size=batch_size, noise=noise, ranking=ranking, direction=direction,
                                           device=device).to(device)
@@ -105,7 +104,7 @@ def run(env_name, paired, restart_training, restart_episode_id, num_episodes, tr
         if (not t % save_every):
             torch.save([t, model.state_dict(), optimizer.state_dict(), std, ess], save_dir)
             experiment = 'synthetic' if synthetic else 'llm_generated'
-            acc = evaluate_classification(env_name=env_name, experiment=experiment, paired=paired,
+            acc = evaluate_classification(env_name=env_name, experiment=experiment, paired=paired, policy='bernoulli',
                                           env=None, model=model, mode='val', shuffle_trials=shuffle, loss=loss_fn, max_steps=max_steps, num_dims=num_dims, optimizer=optimizer, device=device)
             accuracy.append(acc)
             wandb.log({"Val. Acc.": acc})
