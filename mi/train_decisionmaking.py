@@ -6,7 +6,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import wandb
 from envs import DecisionmakingTask, SyntheticDecisionmakingTask
-from model import TransformerDecoderClassification, TransformerDecoderLinearWeights_depr
+from model import TransformerDecoderClassification, TransformerDecoderLinearWeights
 import argparse
 from tqdm import tqdm
 from evaluate import evaluate_classification
