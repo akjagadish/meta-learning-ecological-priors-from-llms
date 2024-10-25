@@ -234,7 +234,7 @@ if __name__ == '__main__':
     else:
         num_hidden, num_layers, d_model, num_head, loss_fn, _, source, condition = parse_model_path(args.model_name, {}, return_data_info=True)
         save_path = f"{args.paradigm}/data/model_simulation/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss={loss_fn}_paired={args.paired}_policy={args.policy}.npz"
-        save_path = save_path.replace('.npz', f"_ess={str(int(args.ess))}.npz")
+        save_path = save_path.replace('.npz', f"_ess={str(int(args.ess))}.npz") if args.ess is not None else save_path
         
     
     if args.paradigm == 'functionlearning':
