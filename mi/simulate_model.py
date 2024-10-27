@@ -4,7 +4,7 @@ from envs import Binz2022, Badham2017, Devraj2022, Little2022, SyntheticFunction
 import argparse
 from tqdm import tqdm
 from scipy.optimize import differential_evolution, minimize
-from model import TransformerDecoderClassification, TransformerDecoderLinearWeights, TransformerDecoderRegression, TransformerDecoderRegressionLinearWeights
+from model import TransformerDecoderClassification, TransformerDecoderLinearWeights, TransformerDecoderRegression, TransformerDecoderRegressionLinearWeights, TransformerDecoderLinearWeightsConstrained
 import sys
 import re
 # import ivon
@@ -16,26 +16,27 @@ SYS_PATH = '/u/ajagadish/ermi'
 def compute_mse(x, y, axis=1):
     return ((x - y) ** 2).mean(axis=axis)
 
-def compute_loglikelihood_human_choices_under_model(env=None, model_path=None, participant=0, beta=1., epsilon=0., policy='greedy', device='cpu', paired=False, **kwargs):
+def compute_loglikelihood_human_choices_under_model(env=None, model_path=None, participant=0, beta=1., epsilon=0., policy='greedy', constraint=True, device='cpu', paired=False, **kwargs):
 
     # parse model parameters
     num_hidden, num_layers, d_model, num_head, loss_fn, model_max_steps = parse_model_path(model_path, kwargs)
 
     # initialise model
     if paired:
-        model = TransformerDecoderLinearWeights(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
-                                                num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+        if constraint:
+            model = TransformerDecoderLinearWeightsConstrained(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                                    num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+        else:
+            model = TransformerDecoderLinearWeights(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                                    num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
 
     else:
         model = TransformerDecoderClassification(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
                                                  num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
     
     # load model weights
-    # state_dict = torch.load(
-    #     model_path, map_location=device)[1]
-    _, state_dict, opt_dict, _, _ = torch.load(model_path, map_location=device, weights_only=False)
-    # optimizer = ivon.IVON(model.parameters(), lr=1., ess=1000000) # dummy optimizer
-    # optimizer.load_state_dict(opt_dict)
+    state_dict = torch.load(
+        model_path, map_location=device)[1]
     model.load_state_dict(state_dict)
     model.to(device)
 
@@ -54,17 +55,10 @@ def compute_loglikelihood_human_choices_under_model(env=None, model_path=None, p
             packed_inputs, sequence_lengths, correct_choices, human_choices, _, _ = outputs
 
         # get model choices
-        # model_choice_probs = []
-        # test_samples = 10
-        # for i in range(test_samples):
-        #     with optimizer.sampled_params():
-        #         sampled_probs = model(
-        #             packed_inputs.float().to(device), sequence_lengths)
-        #         model_choice_probs.append(sampled_probs)
-        # model_choice_probs = torch.stack(model_choice_probs).mean(0)
         model_choice_probs = model(packed_inputs.float().to(device), sequence_lengths)
         model_choices = model_choice_probs.round() if policy == 'greedy' else Bernoulli(
                     probs=model_choice_probs).sample()
+        l2_norm = torch.norm(torch.cat([p.flatten() for p in model.parameters() if p is not None]), 2)
 
         # compute metrics
         per_trial_model_accuracy =(model_choices == correct_choices)
@@ -82,17 +76,22 @@ def compute_loglikelihood_human_choices_under_model(env=None, model_path=None, p
                           correct_choices).sum() / correct_choices.numel()
         model_coefficients = model.w.detach().numpy() if paired else None
 
-    return model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coefficients, expected_log_likelihood
+    return model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coefficients, expected_log_likelihood, l2_norm
 
-def compute_mses_human_predictions_under_model(env=None, model_path=None, participant=0, device='cpu', paired=False, policy='greedy', **kwargs):
+def compute_mses_human_predictions_under_model(env=None, model_path=None, participant=0, device='cpu', paired=False, policy='greedy', constraint=True, **kwargs):
     
     # parse model parameters
     num_hidden, num_layers, d_model, num_head, loss_fn, model_max_steps = parse_model_path(model_path, kwargs)
 
     # initialise model
     if paired:
-        model = TransformerDecoderRegressionLinearWeights(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
-                                                    num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+        if constraint:
+            pass
+        #     model = TransformerDecoderLinearWeightsConstrained(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+        #                                             num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+        else:
+            model = TransformerDecoderRegressionLinearWeights(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                                        num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
 
     else:
         model = TransformerDecoderRegression(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
@@ -171,7 +170,7 @@ def sample_model(args):
         model_errors, model_preds, targets, human_preds, ground_truth_functions = [], [], [], [], []
         for participant in participants:
             model_pred, model_error, target, human_pred, ground_truth_function = compute_mses_human_predictions_under_model(env=env, model_path=model_path, participant=participant, shuffle_trials=True,
-                                                                                                             paired=args.paired, **task_features)
+                                                                                                             paired=args.paired, constraint=args.constraint, **task_features)
             model_preds.append(model_pred)
             model_errors.append(model_error)
             targets.append(target)
@@ -181,19 +180,20 @@ def sample_model(args):
         
     else:
 
-        per_trial_accs, per_trial_human_accs, human_accs, accs, coeffs, exp_logs = [], [], [], [], [], []
+        per_trial_accs, per_trial_human_accs, human_accs, accs, coeffs, exp_logs, l2_norms = [], [], [], [], [], [], []
         for participant in participants:  
             beta, epsilon = 1., 0.
-            model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coeffs, expected_log_likelihood = compute_loglikelihood_human_choices_under_model(env=env, model_path=model_path, participant=participant, shuffle_trials=True,
-                                                                                                                    beta=beta, epsilon=epsilon, policy=args.policy, paired=args.paired, **task_features)
+            model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coeffs, expected_log_likelihood, l2_norm = compute_loglikelihood_human_choices_under_model(env=env, model_path=model_path, participant=participant, shuffle_trials=True,
+                                                                                                                    beta=beta, epsilon=epsilon, policy=args.policy, paired=args.paired, constraint=args.constraint, **task_features)
             human_accs.append(human_accuracy)
             per_trial_accs.append(per_trial_model_accuracy)
             per_trial_human_accs.append(per_trial_human_accuracy)
             accs.append(model_accuracy)
             coeffs.append(model_coeffs)
             exp_logs.append(expected_log_likelihood)
+            l2_norms.append(l2_norm)
         
-        return np.array(accs), torch.stack(per_trial_accs).squeeze().sum(1), np.array(human_accs), np.stack(per_trial_human_accs).squeeze().sum(1), np.stack(coeffs), torch.stack(exp_logs).squeeze()
+        return np.array(accs), torch.stack(per_trial_accs).squeeze().sum(1), np.array(human_accs), np.stack(per_trial_human_accs).squeeze().sum(1), np.stack(coeffs), torch.stack(exp_logs).squeeze(), np.array(l2_norms)
 
 
 if __name__ == '__main__':
@@ -213,6 +213,8 @@ if __name__ == '__main__':
                         help='method to use for computing model choices')
     parser.add_argument('--ess', type=float, default=None,
                          help='weight for the nll loss term in the ELBO')
+    parser.add_argument('--constraint', action='store_true',
+                        default=False, help='use constrained model')
     parser.add_argument('--job-array', action='store_true',
                         default=False, help='passed as a job array')
     parser.add_argument('--scale', type=int, default=10000,
@@ -244,9 +246,9 @@ if __name__ == '__main__':
         np.savez(save_path, model_preds=model_preds, model_errors=model_errors, targets=targets, 
                  human_preds=human_preds, ground_truth_functions=ground_truth_functions)
     else:
-        model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coefficients, expected_log_likelihood  = sample_model(args)
+        model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coefficients, expected_log_likelihood, l2_norms  = sample_model(args)
         print('saving')
         # save list of results
         np.savez(save_path, model_accuracy=model_accuracy, per_trial_model_accuracy=per_trial_model_accuracy, 
                  human_accuracy=human_accuracy, per_trial_human_accuracy=per_trial_human_accuracy, model_coefficients=model_coefficients,
-                 expected_log_likelihood=expected_log_likelihood)
+                 expected_log_likelihood=expected_log_likelihood, l2_norms=l2_norms)

@@ -5,7 +5,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import wandb
 from envs import DecisionmakingTask, SyntheticDecisionmakingTask
-from model import TransformerDecoderClassification, TransformerDecoderLinearWeights
+from model import TransformerDecoderClassification, TransformerDecoderLinearWeights, TransformerDecoderLinearWeightsConstrained
 import argparse
 from tqdm import tqdm
 from evaluate import evaluate_classification
@@ -27,8 +27,13 @@ def run(env_name, paired, restart_training, restart_episode_id, num_episodes, tr
 
     # setup model
     if paired:
-        model = TransformerDecoderLinearWeights(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
-                                                num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+        if constraint:
+            model = TransformerDecoderLinearWeightsConstrained(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                                    num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+
+        else:
+            model = TransformerDecoderLinearWeights(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                                    num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
 
     else:
         model = TransformerDecoderClassification(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,

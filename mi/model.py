@@ -223,7 +223,6 @@ class TransformerDecoderLinearWeights(nn.Module):
         self.linear = nn.Linear(d_model, self.num_output)
         self.sigmoid = nn.Sigmoid()
         self.beta = beta
-        self.lambda_ = nn.Parameter(-5 * torch.ones([]), requires_grad=True)
 
         assert loss in ['bce', 'nll', 'variational'], "loss must be binary cross entropy or negative log likelihood"
         self.loss = loss
@@ -277,6 +276,7 @@ class TransformerDecoderLinearWeights(nn.Module):
         else:
             theta = self.forward(
                 packed_inputs, sequence_lengths)
+            theta = torch.clamp(theta, min=0.0, max=1.0)
             predictive_posterior = Bernoulli(theta)
             return - predictive_posterior.log_prob(
                 targets.unsqueeze(2).float().to(self.device)).mean()
@@ -294,6 +294,13 @@ class TransformerDecoderLinearWeights(nn.Module):
         for layer in self.transformer.layers:
             self_attention_weights.extend([layer.self_attn.in_proj_weight, layer.self_attn.in_proj_bias, layer.self_attn.out_proj.weight, layer.self_attn.out_proj.bias])
         return self_attention_weights
+ 
+class TransformerDecoderLinearWeightsConstrained(TransformerDecoderLinearWeights):
+    """ Meta-learning model with transformer core that predicts linear weights for decision-making task with a constraint """
+
+    def __init__(self, num_input, num_output, num_hidden, num_layers=1, d_model=256, num_head=1, dropout=0.1, beta=1, max_steps=20, loss='bce', device='cpu') -> None:
+        super(TransformerDecoderLinearWeightsConstrained, self).__init__(num_input, num_output, num_hidden, num_layers, d_model, num_head, dropout, beta, max_steps, loss, device)
+        self.lambda_ = nn.Parameter(-5 * torch.ones([]), requires_grad=True)
     
 class TransformerDecoder(nn.Module):
     """ Meta-learning model with transformer core for the categorisation task """
