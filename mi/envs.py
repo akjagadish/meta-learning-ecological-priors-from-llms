@@ -96,11 +96,10 @@ class FunctionlearningTask(nn.Module):
                             for task_input_features in data.input.values]
         packed_inputs = rnn_utils.pad_sequence(
             stacked_task_features, batch_first=True)
-        if self.shuffle_features:
+        if self.shuffle_features and packed_inputs.shape[2] > 2:
             # permute the order of features in packed inputs but keep the last dimension as is
-            task_features = packed_inputs[..., -1]
-            task_features = task_features[..., np.random.permutation(
-                task_features.shape[2])]
+            task_features = packed_inputs[..., :-1]
+            task_features = task_features[..., np.random.permutation(task_features.shape[2])]
             packed_inputs[..., :-1] = task_features
 
         return packed_inputs.to(self.device), sequence_lengths, stacked_targets

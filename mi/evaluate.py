@@ -7,7 +7,7 @@ from model_utils import parse_model_path
 from torch.distributions import Categorical, Normal, Bernoulli
 
 
-def evaluate_regression(env_name=None, model_path=None, experiment='llm_generated', env=None, model=None, mode='val', shuffle_trials=False, loss='mse', beta=1., max_steps=70, nonlinear=False, num_dims=3, device='cpu', return_all=False):
+def evaluate_regression(env_name=None, model_path=None, experiment='llm_generated', env=None, model=None, mode='val', shuffle_trials=False, loss='mse', beta=1., max_steps=70, num_dims=3, device='cpu', return_all=False):
 
     if env is None:
         # load environment
