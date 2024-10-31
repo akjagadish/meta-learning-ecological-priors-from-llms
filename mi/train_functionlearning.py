@@ -160,6 +160,7 @@ if __name__ == "__main__":
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     env = f'{args.env_name}_dim{args.num_dims}' if args.synthetic else args.env_name if args.env_type is None else args.env_type
+    args.ess = args.ess * args.scale + args.offset if args.job_array else args.ess
     # wandb configuration
     wandb.login()
     wandb.init(
@@ -189,7 +190,7 @@ if __name__ == "__main__":
 
     for i in range(args.runs):
 
-        save_dir = f'{args.save_dir}env={env}_model={args.model_name}_num_episodes{str(args.num_episodes)}_num_hidden={str(args.num_hidden)}_lr{str(args.lr)}_num_layers={str(args.num_layers)}_d_model={str(args.d_model)}_num_head={str(args.num_head)}_noise{str(args.noise)}_shuffle{str(args.shuffle)}_run={str(args.first_run_id + i)}.pt'
+        save_dir = f'{args.save_dir}env={env}_model={args.model_name}_num_episodes{str(args.num_episodes)}_num_hidden={str(args.num_hidden)}_lr{str(args.lr)}_num_layers={str(args.num_layers)}_d_model={str(args.d_model)}_num_head={str(args.num_head)}_noise{str(args.noise)}_shuffle{str(args.shuffle)}_ess{str(round(float(args.ess), 4))}_run={str(args.first_run_id + i)}.pt'
         save_dir = save_dir.replace(
                 '.pt', f'_synthetic.pt') if args.synthetic else save_dir
         save_dir = save_dir.replace(
