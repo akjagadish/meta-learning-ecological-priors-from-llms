@@ -160,6 +160,61 @@ def optimize(args):
     return np.array(pr2s), np.array(nlls), accs, parameters
 
 
+def grid_search(args):
+
+    model_path = f"{SYS_PATH}/{args.paradigm}/trained_models/{args.model_name}.pt"
+    if args.task_name == 'badham2017':
+        env = Badham2017()
+        task_features = {'model_max_steps': 96, 'state_dict': False}
+    elif args.task_name == 'devraj2022':
+        env = Devraj2022()
+        task_features = {'model_max_steps': 616, 'state_dict': False}
+    elif args.task_name == 'binz2022':
+        env = Binz2022(experiment_id=args.exp_id)
+        task_features = {'model_max_steps': 10, 'state_dict': True}
+    else:
+        raise NotImplementedError
+    
+    # parse model parameters
+    num_hidden, num_layers, d_model, num_head, loss_fn, model_max_steps = parse_model_path(model_path, task_features)
+    
+    # initialise model
+    if args.paradigm == 'decisionmaking':
+        model = TransformerDecoderLinearWeights(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                                num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+
+    elif args.paradigm == 'functionlearning':
+        pass
+    elif args.paradigm == 'categorisation':
+        model = TransformerDecoderClassification(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                                 num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
+    
+    # load model weights
+    state_dict = torch.load(
+        model_path, map_location=device)[1]    
+    model.load_state_dict(state_dict)
+
+    pr2s, nlls, accs, parameters = [], [], [], []
+    participants = env.data.participant.unique()
+    for participant in tqdm(participants):
+        res_fun = np.inf
+        for _ in range(args.num_iters):
+            for beta in np.linspace(0., 1., 100):
+                ll, chance_ll, acc = compute_loglikelihood_human_choices_under_model(env=env, model=model, participant=participant, shuffle_trials=True,
+                                                                                    beta=beta, epsilon=None, method=args.method, paired=args.paired, model_path=model_path, **task_features)
+                if -ll.numpy() < res_fun:
+                    res_fun = -ll.numpy()
+                    res_acc = acc
+                    res_beta = beta
+                    print(f"current min nll and parameter: {res_fun, res_beta}")
+
+        nlls.append(res_fun)
+        pr2s.append(1 - (-res_fun/chance_ll))
+        accs.append(res_acc)
+        parameters.append([res_beta, args.ess])
+
+    return np.array(pr2s), np.array(nlls), accs, parameters
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='save meta-learners choices for a given task within a paradigm')
@@ -175,19 +230,34 @@ if __name__ == '__main__':
                         help='method for computing model choice probabilities')
     parser.add_argument('--epsilon', type=float, default=0.,
                         help='epsilon for grid_search')
+    parser.add_argument('--ess', type=float, default=0.0,
+                        help='regularisation strength for grid_search')
     parser.add_argument('--num-iters', type=int, default=5)
     parser.add_argument('--paired', action='store_true',
                         default=False, help='paired')
     parser.add_argument('--optimizer', type=str, default='de', help='optimizer')
+    parser.add_argument('--use-base-model-name', action='store_true',
+                        default=False, help='use filename')
+    parser.add_argument('--scale', type=float, default=1,
+                        help='scale for the job array')
+    parser.add_argument('--offset', type=float, default=0,
+                        help='offset for the job array')
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
+    args.ess = args.ess*args.scale + args.offset
+    # find ess{ess} in model name and replace with ess{args.ess}
+    args.model_name = re.sub(r'ess\d+\.\d+', f'ess{args.ess}', args.model_name) if args.use_base_model_name else args.model_name
 
     assert args.method in ['soft_sigmoid', 'bounded_soft_sigmoid'], 'method not implemented'
-    pr2s, nlls, accs, parameters = optimize(args)
-    
+    assert args.optimizer in ['de', 'grid_search'], 'optimizer not implemented'
+    if args.optimizer == 'de':
+        pr2s, nlls, accs, parameters = optimize(args)
+    elif args.optimizer == 'grid_search':
+        pr2s, nlls, accs, parameters = grid_search(args)
+
     # save list of results
-    num_hidden, num_layers, d_model, num_head, loss_fn, _, source, condition = parse_model_path(args.model_name, {}, return_data_info=True)
-    save_path = f"{args.paradigm}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss={loss_fn}_paired={args.paired}_method={args.method}_optimizer={args.optimizer}_numiters={args.num_iters}.npz"
+    num_hidden, num_layers, d_model, num_head, loss_fn, _, source, condition, _ = parse_model_path(args.model_name, {}, return_data_info=True)
+    save_path = f"{args.paradigm}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_ess={str(round(float(args.ess), 4))}_loss={loss_fn}_paired={args.paired}_method={args.method}_optimizer={args.optimizer}_numiters={args.num_iters}.npz"
     np.savez(save_path, betas=parameters, nlls=nlls, pr2s=pr2s, accs=accs)
