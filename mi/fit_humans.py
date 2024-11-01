@@ -249,8 +249,7 @@ if __name__ == '__main__':
     args.ess = args.ess*args.scale + args.offset
     # find ess{ess} in model name and replace with ess{args.ess}
     args.model_name = re.sub(r'ess\d+\.\d+', f'ess{args.ess}', args.model_name) if args.use_base_model_name else args.model_name
-
-    assert args.method in ['soft_sigmoid', 'bounded_soft_sigmoid'], 'method not implemented'
+    assert args.method in ['soft_sigmoid', 'bounded_soft_sigmoid', 'bounded'], 'method not implemented'
     assert args.optimizer in ['de', 'grid_search'], 'optimizer not implemented'
     if args.optimizer == 'de':
         pr2s, nlls, accs, parameters = optimize(args)
