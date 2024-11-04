@@ -23,15 +23,17 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_i
                                    batch_size=batch_size, noise=noise, shuffle_trials=shuffle, shuffle_features=shuffle_features, device=device).to(device)
 
     # setup model
+    model = TransformerDecoderRegression(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+                                             num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=max_steps, loss=loss, device=device).to(device)
+    start_id = 0
+    
     if restart_training and os.path.exists(save_dir):
-        t, model = torch.load(save_dir)
+        #t, model = torch.load(save_dir)
+        t, state_dict, _, _, _ = torch.load(save_dir)
+        model.load_state_dict(state_dict)
         model = model.to(device)
         print(f'Loaded model from {save_dir}')
         start_id = t if restart_episode_id == 0 else restart_episode_id
-    else:
-        model = TransformerDecoderRegression(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
-                                             num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=max_steps, loss=loss, device=device).to(device)
-        start_id = 0
     # setup optimizer
     if optim == 'schedulefree':
         optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=lr, weight_decay=ess_init)
@@ -47,7 +49,8 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_i
         model.train()
         # sample batch
         packed_inputs, sequence_lengths, targets = env.sample_batch()
-        norm = torch.norm(torch.cat([p.flatten() for p in model.parameters() if p is not None]), 2)#.item()
+        with torch.no_grad():
+            norm = torch.norm(torch.cat([p.flatten() for p in model.parameters() if p is not None]), 2).item()
 
         loss = model.compute_loss(packed_inputs, targets, sequence_lengths)
         # backprop
@@ -72,7 +75,7 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_i
         # logging
         losses.append(loss.item())
         if (not t % print_every):
-            wandb.log({"loss": loss, "l2 norm": norm.detach().item(), "episode": t})
+            wandb.log({"loss": loss, "l2 norm": norm, "episode": t})
 
         if (not t % save_every):
             torch.save([t, model.state_dict(), optimizer.state_dict(), ess], save_dir)
