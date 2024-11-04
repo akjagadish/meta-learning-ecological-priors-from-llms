@@ -199,7 +199,7 @@ if __name__ == "__main__":
         save_dir = save_dir.replace(
             '.pt', '_test.pt') if args.test else save_dir
         env_name = f'/{args.env_dir}/{args.env_name}.csv' if not args.synthetic else None
-        save_dir = save_dir.replace('.pt', f'_reg{args.regularize}.pt')
+        save_dir = save_dir.replace('.pt', f'_reg{args.regularize}.pt') if args.ess > 0 else save_dir
         save_dir = save_dir.replace('.pt', f'_essinit{str(args.ess_init)}_annealed.pt') if args.annealing_fraction > 0 else save_dir
         save_dir = save_dir.replace('.pt', f'_schedulefree.pt') if args.optimizer == 'schedulefree' else save_dir
         wandb.run.name = save_dir[len(args.save_dir):]
