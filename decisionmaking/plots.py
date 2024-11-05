@@ -12,7 +12,10 @@ import sys
 import os
 from os import getenv
 from os.path import join
-
+from dotenv import load_dotenv
+from sklearn.preprocessing import PolynomialFeatures
+import statsmodels.api as sm
+load_dotenv()
 SYS_PATH = getenv('BERMI_DIR')
 sys.path.append(f"{SYS_PATH}/decisionmaking/")
 sys.path.append(f"{SYS_PATH}/decisionmaking/data")
@@ -21,9 +24,6 @@ FONTSIZE = 20
 
 
 def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', method='best'):
-
-    from sklearn.preprocessing import PolynomialFeatures
-    import statsmodels.api as sm
 
     def gini_compute(x):
         mad = np.abs(np.subtract.outer(x, x)).mean()
@@ -328,6 +328,39 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
         np.savez(f'{SYS_PATH}/decisionmaking/data/stats/stats_{str(mode)}_{str(dim)}_{condition}.npz', all_corr=all_corr, gini_coeff=gini_coeff, posterior_logprob=posterior_logprob, all_accuraries_linear=all_accuraries_linear,
                  all_accuraries_polynomial=all_accuraries_polynomial, all_targets_with_norm=all_targets_with_norm, all_features_with_norm=all_features_with_norm, sign_coeff=sign_coeff, direction_coeff=direction_coeff)
 
+def induce_condition_llm_generated_data(condition='ranking'):
+
+    # load data
+    env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks7284_run0_procid1_pversionunknown'
+    data = pd.read_csv(f'{env_name}.csv')  
+    data.input = data['input'].apply(lambda x: np.array(eval(x)))
+
+    #fit a linear model for each task then order the features based on the ranking of the coefficients
+    for task in data.task_id.unique():
+        df_task = data[data['task_id'] == task]
+        if len(df_task) > 0:
+            y = df_task['target'].to_numpy()
+            X = df_task["input"].to_numpy()
+            X = np.stack(X)
+            X = (X - X.min(axis=0))/(X.max(axis=0) - X.min(axis=0) + 1e-6)
+            y = (y - y.min(axis=0))/(y.max(axis=0) - y.min(axis=0) + 1e-6)
+
+            X_linear = PolynomialFeatures(1, include_bias=True).fit_transform(X)
+
+            # linear regression from X_linear to y
+            linear_regresion = sm.OLS(y, X_linear).fit()
+
+            # order the features based on the ranking of the coefficients
+            if condition == 'ranking':
+                order = np.argsort(np.abs(linear_regresion.params[1:]))[::-1]
+                # reorder the features in the data frame
+                data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[i] for i in order]).tolist()))
+            elif condition == 'direction':
+                sign = np.sign(linear_regresion.params[1:])
+                # change the sign of the features in the data frame
+                data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[i]*sign[i] for i in range(len(sign))]).tolist()))
+    
+    data.to_csv(f'{env_name}_pseudo{condition}.csv', index=False)
 
 def world_cloud(file_name, path='/u/ajagadish/ermi/decisionmaking/data/synthesize_problems', feature_names=True, pairs=False, top_labels=50):
 
