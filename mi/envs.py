@@ -695,14 +695,14 @@ class Little2022(nn.Module):
     load human data from Badham et al. 2017
     """
     
-    def __init__(self, noise=0., return_true_values=True, scale=0.5, device='cpu'):
+    def __init__(self, noise=0., return_true_values=True, scale=0.5, evaluate_on_train_data=True, sampling_rate=48, device='cpu'):
         super(Little2022, self).__init__()
         DATA_PATH = f'{SYS_PATH}/functionlearning/data/human'
         self.device = torch.device(device)
         self.data = pd.read_csv(f'{DATA_PATH}/little2022functionestimation.csv')
         # filter participants with less than 24 tasks
         self.data = self.data.groupby('participant').filter(lambda x: len(x.task.unique()) == 24) 
-        self.match_train_data = True
+        self.evaluate_on_train_data = evaluate_on_train_data
         # Function to scale 'x' and 'y' for each participant and task
         def scale_participant_task_data(group):
             scaler = MinMaxScaler(feature_range=(-scale, scale))
@@ -718,7 +718,7 @@ class Little2022(nn.Module):
         #TODO: provice these contraints a bit better
         num_points = 24 # 6 or 24
         scale = 2 # 1 is zoomed in or 2 is zoomed out
-        self.sampling_rate = 48
+        self.sampling_rate = sampling_rate if evaluate_on_train_data == False else None
         self.data = self.data[(self.data.num_points==num_points) & (self.data.scale==scale)]
         self.noise = noise
 
@@ -754,7 +754,7 @@ class Little2022(nn.Module):
 
             # get the predictions made by the participants
             test_condition = (data_participant.task==task_id) & (data_participant.type=='test')
-            if self.match_train_data:
+            if self.evaluate_on_train_data:
                 test_features = train_features
                 test_preds = train_preds
             else:
