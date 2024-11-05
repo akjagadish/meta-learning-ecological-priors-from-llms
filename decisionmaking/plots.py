@@ -1,12 +1,14 @@
 from wordcloud import WordCloud
 from collections import Counter
-import torch.nn.functional as F
+# import torch.nn.functional as F
 from groupBMC.groupBMC import GroupBMC
 import json
 import numpy as np
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib.cm import get_cmap
 import seaborn as sns
 import sys
 import os
@@ -22,12 +24,12 @@ sys.path.append(PARADIGM_PATH)
 sys.path.append(f"{PARADIGM_PATH}/data")
 FONTSIZE = 20
 
-def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', method='best'):
+def gini_compute(x):
+    mad = np.abs(np.subtract.outer(x, x)).mean()
+    rmad = mad/np.mean(x)
+    return 0.5 * rmad
 
-    def gini_compute(x):
-        mad = np.abs(np.subtract.outer(x, x)).mean()
-        rmad = mad/np.mean(x)
-        return 0.5 * rmad
+def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', method='best'):
 
     def calculate_bic(n, rss, num_params):
         bic = n * np.log(rss/n) + num_params * np.log(n)
@@ -403,6 +405,94 @@ def world_cloud(file_name, path='/u/ajagadish/ermi/decisionmaking/data/synthesiz
     plt.show()
     wordcloud.to_file(
         f'{SYS_PATH}/figures/wordcloud_{column_name}_paired={pairs}_top{top_labels}.png')
+
+def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', condition='unknown', FIGSIZE = (8, 5)):
+    
+    esses = [0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0]
+    
+    # performance of ERMI and BERMI with different ess values over trials
+    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    ess_list, mean_accs, norms_list  = [], [], []
+    cmap = get_cmap('cividis_r') # Generate colors from a colormap
+    colors = [cmap(i) for i in np.linspace(0., 1., len(esses)+1)]  # Aajust the number of colors as needed
+    data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
+    num_tasks = data.task.max() + 1
+    for i, ess in enumerate(esses):
+        results_bermi_paired_ess = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_dim4_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_essinit0.0_annealed_schedulefree_binz2022.npz')    
+        ax.errorbar(x=np.arange(10), y=(results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).mean(0),
+                    yerr=(results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).std(0) / np.sqrt(num_tasks),
+                    label=f'BERMI $\lambda={str(ess)}$', c=colors[i + 1])
+        mean_accs.append((results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).mean())
+        ess_list.append(ess)
+        norms_list.append(results_bermi_paired_ess['l2_norms'].mean())
+    ax.set_xlabel('trials', fontsize=FONTSIZE)
+    ax.set_ylabel('accuracy', fontsize=FONTSIZE)
+    plt.xticks(fontsize=FONTSIZE - 2)
+    plt.yticks(fontsize=FONTSIZE - 2)
+    plt.ylim(0.4, 1.0)
+    plt.legend(loc='lower right', bbox_to_anchor=(1.3, 0.05), frameon=False, fontsize=FONTSIZE - 10)
+    sns.despine()
+    f.tight_layout()
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/binz2022_performance_over_trials_{source}_{condition}_exp{experiment_id}.png')
+
+    # scatter plot of mean accuracy vs regularization parameter
+    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    ax.scatter(ess_list, mean_accs, lw=3, color=colors[1:])
+    ax.set_ylabel('accuracy', fontsize=FONTSIZE)
+    ax.set_xlabel('$\lambda$', fontsize=FONTSIZE)
+    # ax.set_xscale('log')
+    plt.xticks(fontsize=FONTSIZE-2)
+    plt.yticks(fontsize=FONTSIZE-2)
+    plt.ylim(0.45, 1.) # set y axis limit between 0.5 and 1.
+    sns.despine()
+    plt.legend(frameon=False,fontsize=FONTSIZE-4)
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/binz2022_meanperformance_vs_ess_{source}_{condition}_exp{experiment_id}.png')
+
+    # scatter plot of mean accuracy vs l2 norm
+    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    ax.scatter(norms_list, mean_accs, lw=3, color=colors[1:])
+    ax.set_ylabel('accuracy', fontsize=FONTSIZE)
+    ax.set_xlabel('$norm$', fontsize=FONTSIZE)
+    # ax.set_xscale('log')
+    plt.xticks(fontsize=FONTSIZE-3)
+    plt.yticks(fontsize=FONTSIZE-3)
+    plt.ylim(0.45, 1.) # set y axis limit between 0.5 and 1.
+    sns.despine()
+    plt.legend(frameon=False,fontsize=FONTSIZE-4)
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/binz2022_meanperformance_vs_norm_{source}_{condition}_exp{experiment_id}.png')
+    
+    # ginis_bermi =np.zeros((len(esses),) + results_bermi_paired_ess['model_coefficients'][...,[0]].shape)
+    # for i, ess in enumerate(esses):
+    #     results_bermi_paired_ess = np.load(f'/u/ajagadish/ermi/decisionmaking/data/model_simulation/env={source}_dim4_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_essinit0.0_annealed_schedulefree_binz2022.npz')
+    #     for participant in range(results_bermi_paired_ess['model_coefficients'].shape[0]):
+    #         for task in range(results_bermi_paired_ess['model_coefficients'].shape[1]):
+    #             for trial in range(results_bermi_paired_ess['model_coefficients'].shape[2]):
+    #                 ginis_bermi[i, participant, task, trial]= gini_compute(np.abs(results_bermi_paired_ess['model_coefficients'][participant, task, trial]))
+                    
+    # for idx, ess in enumerate(esses):
+    #     all_trials_data = []
+    #     for trial in range(1, ginis_bermi.shape[-1], 2):
+    #         trial_data = ginis_bermi[idx][:, :, trial].squeeze().mean(0)
+    #         all_trials_data.append(trial_data)
+    #     df = pd.DataFrame({
+    #         'gini': [item for sublist in all_trials_data for item in sublist],
+    #         'trial': [trial*2+1 for trial, sublist in enumerate(all_trials_data) for _ in sublist]
+    #     })
+
+    #     # Create a swarm plot for each trial using the accumulated data
+    #     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    #     sns.swarmplot(x='trial', y='gini', data=df, c=colors[idx + 1], ax=ax)
+    #     plt.ylim([0., 0.5 if experiment_id==3 else 0.8])
+    #     plt.ylabel('gini')
+    #     plt.xlabel('trials')
+    #     sns.despine()
+    #     plt.title(f"experiment {experiment_id}: {source}, {condition}, $\lambda={str(ess)}$")
+    #     # plt.legend(loc='lower right', bbox_to_anchor=(1.3, .05), frameon=False, fontsize=FONTSIZE - 11)
+    #     plt.show()
+    #     plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_vs_trials_{source}_{condition}_exp{experiment_id}_ess{str(ess)}.png')
 
 def model_comparison_binz2022(experiment_id, FIGSIZE = (10,5)):
     
