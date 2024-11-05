@@ -17,11 +17,10 @@ from sklearn.preprocessing import PolynomialFeatures
 import statsmodels.api as sm
 load_dotenv()
 SYS_PATH = getenv('BERMI_DIR')
-sys.path.append(f"{SYS_PATH}/decisionmaking/")
-sys.path.append(f"{SYS_PATH}/decisionmaking/data")
-# from evaluate import evaluate_metalearner
+PARADIGM_PATH = f"{SYS_PATH}/decisionmaking"
+sys.path.append(PARADIGM_PATH)
+sys.path.append(f"{PARADIGM_PATH}/data")
 FONTSIZE = 20
-
 
 def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', method='best'):
 
@@ -404,3 +403,71 @@ def world_cloud(file_name, path='/u/ajagadish/ermi/decisionmaking/data/synthesiz
     plt.show()
     wordcloud.to_file(
         f'{SYS_PATH}/figures/wordcloud_{column_name}_paired={pairs}_top{top_labels}.png')
+
+def model_comparison_binz2022(experiment_id, FIGSIZE = (10,5)):
+    
+    data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
+    num_participants = data.participant.nunique()
+    num_trials = (data.trial.max()+1)*(data.task.max()+1) 
+
+    # load model fit results
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition=unknown_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition=unknown_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
+    results_bermi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+    results_bmi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+    logprobs_bmi = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_bmli.pth')[0]
+    logprobs_baselines = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_fitted.pth')[0]
+    logprobs_bmi = torch.cat([logprobs_baselines[:, [0]], logprobs_bmi], dim=-1)
+    best_logprobs, best_index = torch.max(logprobs_bmi, dim=-1)
+
+    # compute bic
+    bermi_bic = (2*results_bermi['nlls'] + 2*np.log(num_trials)).sum()
+    bmi_bic = (2*results_bmi['nlls'] + 2*np.log(num_trials)).sum()
+    ermi_bic = (2*results_ermi['nlls'] + 1*np.log(num_trials)).sum()
+    mi_bic = (2*results_mi['nlls']+ 1*np.log(num_trials)).sum() 
+    rnn_mi_bic = (-2*logprobs_bmi[:, 1] + 1*np.log(num_trials)).sum() 
+    rnn_bmi_bic = (-2*best_logprobs + 2*np.log(num_trials)).sum()
+    random_bic = -2*np.log(0.5)*num_trials*num_participants
+    
+    # experiment specific model fit results
+    condition = 'rank' if experiment_id == 1 else 'direction'
+    if experiment_id == 1 or experiment_id == 2:
+        
+        results_mi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition={condition}_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
+        results_ermi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition={condition}_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
+        results_bermi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition={condition}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+        results_bmi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition={condition}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+        
+        bermi_condition_bic = (2*results_bermi_condition['nlls'] + 2*np.log(num_trials)).sum()
+        bmi_condition_bic = (2*results_bmi_condition['nlls'] + 2*np.log(num_trials)).sum()
+        ermi_condition_bic = (2*results_ermi_condition['nlls'] + 1*np.log(num_trials)).sum()
+        mi_condition_bic = (2*results_mi_condition['nlls']+ 1*np.log(num_trials)).sum() 
+        abbr = 'R' if condition =='rank' else 'D'
+
+        # collect bics and model names
+        bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic, bermi_condition_bic, bmi_condition_bic, ermi_condition_bic, mi_condition_bic]
+        models = ['BERMI', 'BMI', 'ERMI', 'MI', f'BERMI-{abbr}', f'BMI-{abbr}', f'ERMI-{abbr}', f'MI-{abbr}']
+
+    else:   
+
+        # collect bics and model names
+        bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic]#, rnn_mi_bic, rnn_bmi_bic, random_bic]
+        models = ['BERMI', 'BMI', 'ERMI', 'MI']#,  'RNN_MI', 'RNN_BMI', 'random']
+
+
+    colors = ['#173b4f', '#8b9da7', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(bics)]
+    # compare mean BICS across models in a bar plot
+    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    bar_positions = np.arange(len(bics))*1.5
+    ax.bar(bar_positions, np.array(bics), color=colors, width=1.)
+    ax.set_xlabel('Models', fontsize=FONTSIZE)
+    ax.set_ylabel('BIC', fontsize=FONTSIZE)
+    ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
+    ax.set_xticklabels(models, fontsize=FONTSIZE-6)  # Assign category names to x-tick labels
+    ax.set_title(f'experiment {experiment_id}', fontsize=FONTSIZE)
+    ax.axhline(y=random_bic, color='red', linestyle='dotted', lw=3)
+    plt.yticks(fontsize=FONTSIZE-2)
+    plt.ylim(min(bics)-100, random_bic+100)
+    sns.despine()
+    f.tight_layout()
+    plt.show()
