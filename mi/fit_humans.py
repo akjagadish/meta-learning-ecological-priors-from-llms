@@ -9,8 +9,13 @@ import re
 from model import TransformerDecoderClassification, TransformerDecoderLinearWeights
 from model_utils import parse_model_path
 from torch.distributions import Bernoulli
-sys.path.insert(0, '/u/ajagadish/ermi/mi')
-SYS_PATH = '/u/ajagadish/ermi'
+import pandas as pd
+# sys.path.insert(0, '/u/ajagadish/ermi/mi')
+# SYS_PATH = '/u/ajagadish/ermi'
+from os import getenv
+from dotenv import load_dotenv
+load_dotenv()
+SYS_PATH = getenv('BERMI_DIR')
 
 def compute_loglikelihood_human_choices_under_model(env, model, participant=0, beta=1., epsilon=0., method='soft_sigmoid', policy='greedy', paired=False, model_path=None, **kwargs):
 
@@ -159,7 +164,6 @@ def optimize(args):
 
     return np.array(pr2s), np.array(nlls), accs, parameters
 
-
 def grid_search(args):
 
     model_path = f"{SYS_PATH}/{args.paradigm}/trained_models/{args.model_name}.pt"
@@ -215,17 +219,43 @@ def grid_search(args):
 
     return np.array(pr2s), np.array(nlls), accs, parameters
 
+def find_best_model_gs(args):
+    
+    bermi_esses = np.array([0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0])
+    ermi_esses = np.array([0.0])
+    data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{args.exp_id}.csv')
+    sources = ['claude', 'synthetic']
+    conditions = ['unknown', 'rank'] if args.exp_id == 1 else ['unknown', 'direction'] if args.exp_id == 2 else ['unknown']
+    
+    for data_type in conditions:
+        for source in sources:
+            for esses in [bermi_esses, ermi_esses]:
+                fitted_beta = np.zeros((len(esses), data.participant.max()+1))
+                fitted_nlls = np.zeros((len(esses), data.participant.max()+1))
+                for idx, ess in enumerate(esses):
+                    results = np.load(f'{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={data_type}_ess={str(float(ess))}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+                    fitted_beta[idx] = results['betas'][:, 0]
+                    fitted_nlls[idx] = results['nlls']
+
+                best_idx = np.argmin(fitted_nlls, axis=0)
+                best_ess = esses[best_idx]
+                best_beta = fitted_beta[best_idx, np.arange(data.participant.max()+1)]
+                best_nlls = fitted_nlls.min(0)
+
+                method = 'unbounded' if ess == 0 and len(esses)==1  else 'bounded'
+                np.savez(f"{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={data_type}_loss=nll_paired=True_method={method}_optimizer=grid_search_numiters=5.npz", ess=best_ess, beta=best_beta, nlls=best_nlls)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='save meta-learners choices for a given task within a paradigm')
     parser.add_argument('--no-cuda', action='store_true',
                         default=False, help='disables CUDA training')
-    parser.add_argument('--paradigm', type=str, default='categorisation')
+    parser.add_argument('--paradigm', required=True, type=str, default='categorisation')
     parser.add_argument('--task-name', type=str,
                         required=True, help='task name')
     parser.add_argument('--exp-id', type=int, default=1, help='experiment id')
     parser.add_argument('--model-name', type=str,
-                        required=True, help='model name')
+                        required=False, help='model name')
     parser.add_argument('--method', type=str, default='soft_sigmoid',
                         help='method for computing model choice probabilities')
     parser.add_argument('--epsilon', type=float, default=0.,
@@ -242,21 +272,28 @@ if __name__ == '__main__':
                         help='scale for the job array')
     parser.add_argument('--offset', type=float, default=0,
                         help='offset for the job array')
+    parser.add_argument('--find-best-model', action='store_true',
+                        default=False, help='find best model')
 
     args = parser.parse_args()
+    PARADIGM_PATH = f"{SYS_PATH}/{args.paradigm}"
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    args.ess = args.ess*args.scale + args.offset
-    # find ess{ess} in model name and replace with ess{args.ess}
-    args.model_name = re.sub(r'ess\d+\.\d+', f'ess{args.ess}', args.model_name) if args.use_base_model_name else args.model_name
-    assert args.method in ['soft_sigmoid', 'bounded_soft_sigmoid', 'bounded'], 'method not implemented'
-    assert args.optimizer in ['de', 'grid_search'], 'optimizer not implemented'
-    if args.optimizer == 'de':
-        pr2s, nlls, accs, parameters = optimize(args)
-    elif args.optimizer == 'grid_search':
-        pr2s, nlls, accs, parameters = grid_search(args)
 
-    # save list of results
-    num_hidden, num_layers, d_model, num_head, loss_fn, _, source, condition, _ = parse_model_path(args.model_name, {}, return_data_info=True)
-    save_path = f"{args.paradigm}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_ess={str(round(float(args.ess), 4))}_loss={loss_fn}_paired={args.paired}_method={args.method}_optimizer={args.optimizer}_numiters={args.num_iters}.npz"
-    np.savez(save_path, betas=parameters, nlls=nlls, pr2s=pr2s, accs=accs)
+    if args.find_best_model:
+        find_best_model_gs(args)
+        sys.exit()
+    else:
+        args.ess = args.ess*args.scale + args.offset
+        args.model_name = re.sub(r'ess\d+\.\d+', f'ess{args.ess}', args.model_name) if args.use_base_model_name else args.model_name
+        assert args.method in ['soft_sigmoid', 'bounded_soft_sigmoid', 'bounded'], 'method not implemented'
+        assert args.optimizer in ['de', 'grid_search'], 'optimizer not implemented'
+        if args.optimizer == 'de':
+            pr2s, nlls, accs, parameters = optimize(args)
+        elif args.optimizer == 'grid_search':
+            pr2s, nlls, accs, parameters = grid_search(args)
+
+        # save list of results
+        num_hidden, num_layers, d_model, num_head, loss_fn, _, source, condition, _ = parse_model_path(args.model_name, {}, return_data_info=True)
+        save_path = f"{args.paradigm}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_ess={str(round(float(args.ess), 4))}_loss={loss_fn}_paired={args.paired}_method={args.method}_optimizer={args.optimizer}_numiters={args.num_iters}.npz"
+        np.savez(save_path, betas=parameters, nlls=nlls, pr2s=pr2s, accs=accs)
