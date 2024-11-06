@@ -30,9 +30,15 @@ plot_decisionmaking_data_statistics(
 model_simulation_binz2022(experiment_id=1, source='claude', condition='ranked')
 model_simulation_binz2022(experiment_id=2, source='claude', condition='direction')
 model_simulation_binz2022(experiment_id=3, source='claude', condition='unknown')
+model_simulation_binz2022(experiment_id=1, source='claude', condition='pseudoranked')
+model_simulation_binz2022(experiment_id=2, source='claude', condition='pseudodirection')
+model_simulation_binz2022(experiment_id=1, source='synthetic', condition='ranked')
+model_simulation_binz2022(experiment_id=2, source='synthetic', condition='direction')
 
 # model comparison
 model_comparison_binz2022(experiment_id=1)
 model_comparison_binz2022(experiment_id=2)
+model_comparison_binz2022(experiment_id=1, pseudo=True)
+model_comparison_binz2022(experiment_id=2, pseudo=True)
 model_comparison_binz2022(experiment_id=3)
 model_comparison_binz2022(experiment_id=4)

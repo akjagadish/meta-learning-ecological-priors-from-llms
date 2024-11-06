@@ -412,16 +412,20 @@ def world_cloud(file_name, path='/u/ajagadish/ermi/decisionmaking/data/synthesiz
 def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', condition='unknown', FIGSIZE = (8, 5)):
     
     esses = [0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0]
+    dim = 'dim2' if experiment_id == 3 else 'dim4'
+    # cond = 'ranking_' if condition == 'ranked' else 'direction_' if condition == 'direction' else ''
+    data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
+    num_tasks = data.task.max() + 1
+    num_trials = (data.trial.max()+1)
     
     # performance of ERMI and BERMI with different ess values over trials
     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
     ess_list, mean_accs, norms_list  = [], [], []
     cmap = get_cmap('cividis_r') # Generate colors from a colormap
     colors = [cmap(i) for i in np.linspace(0., 1., len(esses)+1)]  # Aajust the number of colors as needed
-    data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
-    num_tasks = data.task.max() + 1
     for i, ess in enumerate(esses):
         results_bermi_paired_ess = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_dim4_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_essinit0.0_annealed_schedulefree_binz2022.npz')    
+        # results_bermi_paired_ess = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_{cond}essinit0.0_annealed_schedulefree_binz2022.npz')    
         ax.errorbar(x=np.arange(10), y=(results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).mean(0),
                     yerr=(results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).std(0) / np.sqrt(num_tasks),
                     label=f'BERMI $\lambda={str(ess)}$', c=colors[i + 1])
@@ -467,37 +471,34 @@ def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', c
     plt.show()
     plt.savefig(f'{SYS_PATH}/figures/binz2022_meanperformance_vs_norm_{source}_{condition}_exp{experiment_id}.png')
     
-    # ginis_bermi =np.zeros((len(esses),) + results_bermi_paired_ess['model_coefficients'][...,[0]].shape)
-    # for i, ess in enumerate(esses):
-    #     results_bermi_paired_ess = np.load(f'/u/ajagadish/ermi/decisionmaking/data/model_simulation/env={source}_dim4_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_essinit0.0_annealed_schedulefree_binz2022.npz')
-    #     for participant in range(results_bermi_paired_ess['model_coefficients'].shape[0]):
-    #         for task in range(results_bermi_paired_ess['model_coefficients'].shape[1]):
-    #             for trial in range(results_bermi_paired_ess['model_coefficients'].shape[2]):
-    #                 ginis_bermi[i, participant, task, trial]= gini_compute(np.abs(results_bermi_paired_ess['model_coefficients'][participant, task, trial]))
+    ginis_bermi =np.zeros((len(esses),) + results_bermi_paired_ess['model_coefficients'][...,[0]].shape)
+    for i, ess in enumerate(esses):
+        results_bermi_paired_ess = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_essinit0.0_annealed_schedulefree_binz2022.npz')
+        # results_bermi_paired_ess = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_{cond}essinit0.0_annealed_schedulefree_binz2022.npz')
+        for participant in range(results_bermi_paired_ess['model_coefficients'].shape[0]):
+            for task in range(results_bermi_paired_ess['model_coefficients'].shape[1]):
+                for trial in range(results_bermi_paired_ess['model_coefficients'].shape[2]):
+                    ginis_bermi[i, participant, task, trial]= gini_compute(np.abs(results_bermi_paired_ess['model_coefficients'][participant, task, trial]))
                     
-    # for idx, ess in enumerate(esses):
-    #     all_trials_data = []
-    #     for trial in range(1, ginis_bermi.shape[-1], 2):
-    #         trial_data = ginis_bermi[idx][:, :, trial].squeeze().mean(0)
-    #         all_trials_data.append(trial_data)
-    #     df = pd.DataFrame({
-    #         'gini': [item for sublist in all_trials_data for item in sublist],
-    #         'trial': [trial*2+1 for trial, sublist in enumerate(all_trials_data) for _ in sublist]
-    #     })
+    for idx, ess in enumerate(esses):
+        all_trials_data = []
+        for trial in range(1, num_trials, 2):
+            trial_data = ginis_bermi[idx][:, :, trial].squeeze().mean(0)
+            all_trials_data.append(trial_data)
+        df = pd.DataFrame({'gini': [item for sublist in all_trials_data for item in sublist],
+            'trial': [trial*2+1 for trial, sublist in enumerate(all_trials_data) for _ in sublist]})
+        f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+        sns.swarmplot(x='trial', y='gini', data=df, ax=ax, color=colors[idx + 1])
+        plt.ylim([0., 0.5 if experiment_id==3 else 0.8])
+        plt.ylabel('gini')
+        plt.xlabel('trials')
+        sns.despine()
+        plt.title(f"experiment {experiment_id}: {source}, {condition}, $\lambda={str(ess)}$")
+        # plt.legend(loc='lower right', bbox_to_anchor=(1.3, .05), frameon=False, fontsize=FONTSIZE - 11)
+        plt.show()
+        plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_vs_trials_{source}_{condition}_exp{experiment_id}_ess{str(ess)}.png')
 
-    #     # Create a swarm plot for each trial using the accumulated data
-    #     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
-    #     sns.swarmplot(x='trial', y='gini', data=df, c=colors[idx + 1], ax=ax)
-    #     plt.ylim([0., 0.5 if experiment_id==3 else 0.8])
-    #     plt.ylabel('gini')
-    #     plt.xlabel('trials')
-    #     sns.despine()
-    #     plt.title(f"experiment {experiment_id}: {source}, {condition}, $\lambda={str(ess)}$")
-    #     # plt.legend(loc='lower right', bbox_to_anchor=(1.3, .05), frameon=False, fontsize=FONTSIZE - 11)
-    #     plt.show()
-    #     plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_vs_trials_{source}_{condition}_exp{experiment_id}_ess{str(ess)}.png')
-
-def model_comparison_binz2022(experiment_id, FIGSIZE = (10,5)):
+def model_comparison_binz2022(experiment_id, pseudo=False, FIGSIZE = (10,5)):
     
     data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
     num_participants = data.participant.nunique()
@@ -508,8 +509,8 @@ def model_comparison_binz2022(experiment_id, FIGSIZE = (10,5)):
     results_ermi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition=unknown_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
     results_bermi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
     results_bmi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
-    logprobs_bmi = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_bmli.pth')[0]
-    logprobs_baselines = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_fitted.pth')[0]
+    logprobs_bmi = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_bmli.pth', weights_only=False)[0]
+    logprobs_baselines = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_fitted.pth', weights_only=False)[0]
     logprobs_bmi = torch.cat([logprobs_baselines[:, [0]], logprobs_bmi], dim=-1)
     best_logprobs, best_index = torch.max(logprobs_bmi, dim=-1)
 
@@ -523,19 +524,20 @@ def model_comparison_binz2022(experiment_id, FIGSIZE = (10,5)):
     random_bic = -2*np.log(0.5)*num_trials*num_participants
     
     # experiment specific model fit results
-    condition = 'rank' if experiment_id == 1 else 'direction'
+    condition = 'ranked' if experiment_id == 1 else 'direction'
     if experiment_id == 1 or experiment_id == 2:
-        
+
         results_mi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition={condition}_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
+        results_bmi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition={condition}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+        condition = 'pseudo' + condition if pseudo else condition
         results_ermi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition={condition}_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
         results_bermi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition={condition}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
-        results_bmi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition={condition}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
         
         bermi_condition_bic = (2*results_bermi_condition['nlls'] + 2*np.log(num_trials)).sum()
         bmi_condition_bic = (2*results_bmi_condition['nlls'] + 2*np.log(num_trials)).sum()
         ermi_condition_bic = (2*results_ermi_condition['nlls'] + 1*np.log(num_trials)).sum()
         mi_condition_bic = (2*results_mi_condition['nlls']+ 1*np.log(num_trials)).sum() 
-        abbr = 'R' if condition =='rank' else 'D'
+        abbr = 'R' if 'rank' in condition else 'D'
 
         # collect bics and model names
         bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic, bermi_condition_bic, bmi_condition_bic, ermi_condition_bic, mi_condition_bic]
