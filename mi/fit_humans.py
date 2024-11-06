@@ -229,6 +229,8 @@ def find_best_model_gs(args):
     
     for condition in conditions:
         for source in sources:
+            if source == 'synthetic' and ('pseudo' in condition):
+                continue
             for esses in [bermi_esses, ermi_esses]:
                 fitted_beta = np.zeros((len(esses), data.participant.max()+1))
                 fitted_nlls = np.zeros((len(esses), data.participant.max()+1))
