@@ -561,3 +561,4 @@ def model_comparison_binz2022(experiment_id, FIGSIZE = (10,5)):
     sns.despine()
     f.tight_layout()
     plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/binz2022_model_comparison_exp{experiment_id}.png')
