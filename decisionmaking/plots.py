@@ -171,9 +171,12 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
         if dim == 2:
             env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim2_data20_tasks9254_run0_procid0_pversion2_{condition}'
         elif dim == 4:
-            num_tasks = 8770 if condition == 'ranked' else 8220 if condition == 'direction' else 7284
-            # env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks{num_tasks}_run0_procid0_pversion2_{condition}'
-            env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks{num_tasks}_run0_procid1_pversion{condition}'
+            if 'pseudo' in condition:
+                assert condition in ['pseudoranked', 'pseudodirection'], 'condition must be ranked or direction'
+                env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks7284_run0_procid1_pversionunknown_{condition}'               
+            else:
+                num_tasks = 8770 if condition == 'ranked' else 8220 if condition == 'direction' else 7284
+                env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks{num_tasks}_run0_procid1_pversion{condition}'         
         color_stats = '#405A63'  # '#2F4A5A'# '#173b4f'
     elif mode == 1:  # last plot
         env_name = f'{SYS_PATH}/decisionmaking/data/synthetic_decisionmaking_tasks_dim2_data20_tasks10000'
@@ -325,7 +328,7 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
     # plt.show()
 
     # save computed stats in one .npz file
-    if not os.path.exists(f'{SYS_PATH}/decisionmaking/data/stats/stats_{str(mode)}_{str(dim)}_{condition}_test.npz'):
+    if not os.path.exists(f'{SYS_PATH}/decisionmaking/data/stats/stats_{str(mode)}_{str(dim)}_{condition}.npz'):
         np.savez(f'{SYS_PATH}/decisionmaking/data/stats/stats_{str(mode)}_{str(dim)}_{condition}.npz', all_corr=all_corr, gini_coeff=gini_coeff, posterior_logprob=posterior_logprob, all_accuraries_linear=all_accuraries_linear,
                  all_accuraries_polynomial=all_accuraries_polynomial, all_targets_with_norm=all_targets_with_norm, all_features_with_norm=all_features_with_norm, sign_coeff=sign_coeff, direction_coeff=direction_coeff)
 
