@@ -4,6 +4,15 @@ from sklearn.feature_selection import SelectKBest, f_regression
 import numpy as np
 import pandas as pd
 import torch
+import sys
+import os
+from os import getenv
+from dotenv import load_dotenv
+from sklearn.preprocessing import PolynomialFeatures
+import statsmodels.api as sm
+load_dotenv()
+SYS_PATH = getenv('BERMI_DIR')
+PARADIGM_PATH = f"{SYS_PATH}/decisionmaking"
 
 
 def save_real_data_openML(k=2, method='best', num_points=650):
@@ -91,3 +100,40 @@ def save_real_data_lichtenberg2017(k=2, method='best', num_points=650):
 
         else:
             print('not valid data')
+
+
+def induce_pseudo_condition_llm_generated_data(condition='ranked'):
+
+    # load data
+    env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks7284_run0_procid1_pversionunknown'
+    data = pd.read_csv(f'{env_name}.csv')  
+    data.input = data['input'].apply(lambda x: np.array(eval(x)))
+
+    #fit a linear model for each task then order the features based on the ranking of the coefficients
+    for task in data.task_id.unique():
+        df_task = data[data['task_id'] == task]
+        if len(df_task) > 0:
+            y = df_task['target'].to_numpy()
+            X = df_task["input"].to_numpy()
+            X = np.stack(X)
+            # X = (X - X.min(axis=0))/(X.max(axis=0) - X.min(axis=0) + 1e-6)
+            # y = (y - y.min(axis=0))/(y.max(axis=0) - y.min(axis=0) + 1e-6)
+            X = (X - X.mean(axis=0))/(X.std(axis=0) + 1e-6)
+            y = (y - y.mean(axis=0))/(y.std(axis=0) + 1e-6)
+
+            X_linear = PolynomialFeatures(1, include_bias=True).fit_transform(X)
+
+            # linear regression from X_linear to y
+            linear_regresion = sm.OLS(y, X_linear).fit()
+
+            # order the features based on the ranking of the coefficients
+            if condition == 'ranking':
+                order = np.argsort(np.abs(linear_regresion.params[1:]))[::-1]
+                # reorder the features in the data frame
+                data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[i] for i in order]).tolist()))
+            elif condition == 'direction':
+                sign = np.sign(linear_regresion.params[1:])
+                # change the sign of the features in the data frame
+                data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[i]*sign[i] for i in range(len(sign))]).tolist()))
+    
+    data.to_csv(f'{env_name}_pseudo{condition}.csv', index=False)

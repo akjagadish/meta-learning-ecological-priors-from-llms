@@ -1,6 +1,6 @@
 # , compare_data_statistics, compare_inputfeatures, plot_frequency_tasklabels, compare_stats_across_models
-from plots import plot_decisionmaking_data_statistics, induce_condition_llm_generated_data, model_comparison_binz2022, model_simulation_binz2022
-from utils import save_real_data_openML, save_real_data_lichtenberg2017
+from plots import plot_decisionmaking_data_statistics, model_comparison_binz2022, model_simulation_binz2022
+from utils import save_real_data_openML, save_real_data_lichtenberg2017, induce_pseudo_condition_llm_generated_data
 
 # extract real world data
 save_real_data_openML(k=4, num_points=20)
@@ -9,8 +9,8 @@ save_real_data_lichtenberg2017(k=4, num_points=20, method='random')
 save_real_data_openML(k=4, num_points=20, method='random')
 
 # create psuedo ranked and direction data
-induce_condition_llm_generated_data(condition='ranking')
-induce_condition_llm_generated_data(condition='direction')
+induce_pseudo_condition_llm_generated_data(condition='ranked')
+induce_pseudo_condition_llm_generated_data(condition='direction')
 
 # plot data statistics for 2D data
 plot_decisionmaking_data_statistics(0, dim=2, condition='unknown')
