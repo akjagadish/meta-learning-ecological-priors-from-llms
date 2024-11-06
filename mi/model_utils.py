@@ -114,7 +114,7 @@ def parse_model_path(model_path, kwargs, return_data_info=False):
     ess = float(parameters.get('ess', 0))
 
     source = 'claude' if 'claude' in model_path else 'synthetic' if 'synthetic' in model_path else 'syntheticnonlinear' if 'syntheticnonlinear' in model_path else 'NA'
-    condition = 'rank' if 'rank' in model_path else 'direction' if 'direction' in model_path else 'unknown'
+    condition = 'pseudoranked' if 'pseudorank' in model_path else 'pseudodirection' if 'pseudodirection' in model_path else 'rank' if 'rank' in model_path else 'direction' if 'direction' in model_path else 'unknown'
     
     if return_data_info:
         return num_hidden, num_layers, d_model, num_head, loss_fn, model_max_steps, source, condition, ess

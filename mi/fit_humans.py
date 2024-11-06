@@ -225,15 +225,15 @@ def find_best_model_gs(args):
     ermi_esses = np.array([0.0])
     data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{args.exp_id}.csv')
     sources = ['claude', 'synthetic']
-    conditions = ['unknown', 'rank'] if args.exp_id == 1 else ['unknown', 'direction'] if args.exp_id == 2 else ['unknown']
+    conditions = ['unknown', 'rank', 'pseudoranked'] if args.exp_id == 1 else ['unknown', 'direction', 'pseudodirection'] if args.exp_id == 2 else ['unknown']
     
-    for data_type in conditions:
+    for condition in conditions:
         for source in sources:
             for esses in [bermi_esses, ermi_esses]:
                 fitted_beta = np.zeros((len(esses), data.participant.max()+1))
                 fitted_nlls = np.zeros((len(esses), data.participant.max()+1))
                 for idx, ess in enumerate(esses):
-                    results = np.load(f'{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={data_type}_ess={str(float(ess))}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+                    results = np.load(f'{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_ess={str(float(ess))}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
                     fitted_beta[idx] = results['betas'][:, 0]
                     fitted_nlls[idx] = results['nlls']
 
@@ -243,7 +243,7 @@ def find_best_model_gs(args):
                 best_nlls = fitted_nlls.min(0)
 
                 method = 'unbounded' if ess == 0 and len(esses)==1  else 'bounded'
-                np.savez(f"{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={data_type}_loss=nll_paired=True_method={method}_optimizer=grid_search_numiters=5.npz", ess=best_ess, beta=best_beta, nlls=best_nlls)
+                np.savez(f"{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss=nll_paired=True_method={method}_optimizer=grid_search_numiters=5.npz", ess=best_ess, beta=best_beta, nlls=best_nlls)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
