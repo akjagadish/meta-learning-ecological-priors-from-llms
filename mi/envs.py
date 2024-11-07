@@ -466,7 +466,7 @@ class SyntheticDecisionmakingTask(nn.Module):
 
             # save data to csv file
             data.to_csv(
-                f'{SYS_PATH}/decisionmaking/data/synthetic_decisionmaking_tasks_dim{self.num_dims}_data{self.max_steps}_tasks{num_tasks}.csv', index=False)
+                f'{SYS_PATH}/decisionmaking/data/synthetic_decisionmaking_tasks_dim{self.num_dims}_data{self.max_steps}_tasks{num_tasks}_{"ranked" if self.ranking else "direction" if self.direction else "unknown"}.csv', index=False)
 
 
 class Binz2022(nn.Module):
