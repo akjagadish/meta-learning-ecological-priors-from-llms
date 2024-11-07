@@ -167,7 +167,7 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
         return all_corr, gini_coeff, posterior_logprob, all_accuraries_linear, all_accuraries_polynomial, all_targets_with_norm, all_features_with_norm, sign_coeff, direction_coeff
 
     # set env_name and color_stats based on mode
-    if mode == 0:
+    if mode == 0: # claude
         if dim == 2:
             env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim2_data20_tasks9254_run0_procid0_pversion2_{condition}'
         elif dim == 4:
@@ -178,12 +178,14 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
                 num_tasks = 8770 if condition == 'ranked' else 8220 if condition == 'direction' else 7284
                 env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks{num_tasks}_run0_procid1_pversion{condition}'         
         color_stats = '#405A63'  # '#2F4A5A'# '#173b4f'
-    elif mode == 1:  # last plot
-        env_name = f'{SYS_PATH}/decisionmaking/data/synthetic_decisionmaking_tasks_dim2_data20_tasks10000'
+    elif mode == 1:  # synthetic
+        if dim==2:
+            env_name = f'{SYS_PATH}/decisionmaking/data/synthetic_decisionmaking_tasks_dim2_data20_tasks10000'
+        elif dim==4:
+            env_name = f'{SYS_PATH}/decisionmaking/data/synthetic_decisionmaking_tasks_dim4_data20_tasks400_{condition}'
         color_stats = '#66828F'  # 5d7684'# '#5d7684'
-    elif mode == 2:  # first plot
-        assert (
-            condition == 'openML') or (condition == 'lichtenberg2017'), 'condition must be openML or lichtenberg2017'
+    elif mode == 2:  # real
+        assert (condition == 'openML') or (condition == 'lichtenberg2017'), 'condition must be openML or lichtenberg2017'
         env_name = f'{SYS_PATH}/decisionmaking/data/real_data_dim{dim}_method{method}_{condition}'
         color_stats = '#173b4f'  # '#0D2C3D' #'#8b9da7'
     # elif mode == 3:
@@ -193,7 +195,7 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
     # load data
     data = pd.read_csv(f'{env_name}.csv')
     data.input = data['input'].apply(lambda x: np.array(eval(x)))
-    if mode == 2 or mode == 1:
+    if mode == 2: # or mode == 1:
         data.target = data['target'].apply(lambda x: np.array(eval(x)))
         # TODO: shuffle order of input features (but it is artifiically inducing lack of ranking)
         data.input = data.input.apply(np.random.permutation)
@@ -230,7 +232,7 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
 
     axs[0].set_ylim(0, .4)
     axs[1].set_ylim(0, .4)
-    axs[2].set_ylim(0, .6)
+    # axs[2].set_ylim(0, .6)
     axs[3].set_ylim(0, 1.)
     # axs[3].set_ylim(0,  0.75)
 
