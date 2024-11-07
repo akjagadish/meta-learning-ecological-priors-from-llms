@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #SBATCH -o ./logs/%A.out
 #SBATCH -e ./logs/%A.err
-#SBATCH --job-name=fit_humans
+#SBATCH --job-name=generate_plots
 #SBATCH --time=24:00:00
 #SBATCH --mem=40G
 #SBATCH --cpus-per-task=72

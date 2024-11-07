@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH -o ./logs/%A.out
-#SBATCH -e ./logs/%A.err
+#SBATCH -o ./logs/%A_%a.out
+#SBATCH -e ./logs/%A_%a.err
 #SBATCH --job-name=fit_humans
 #SBATCH --time=24:00:00
 #SBATCH --mem=40G
