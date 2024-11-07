@@ -42,8 +42,7 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
         max_tasks = 400
         max_trial = 20
         # sample tasks
-        tasks = range(0, max_tasks) if first else np.random.choice(
-            df.task_id.unique(), max_tasks, replace=False)
+        tasks = range(0, max_tasks) if first else np.random.choice(df.task_id.unique(), max_tasks, replace=False)
         all_corr, all_bics_linear, all_bics_quadratic, gini_coeff, all_accuraries_linear, all_accuraries_polynomial = [], [], [], [], [], []
         sign_coeff, direction_coeff = [], []
         all_features_without_norm, all_features_with_norm, all_targets_with_norm = np.array(
@@ -54,8 +53,8 @@ def plot_decisionmaking_data_statistics(mode=0, dim=4, condition='unkown', metho
                 y = df_task['target'].to_numpy()
                 X = df_task["input"].to_numpy()
                 X = np.stack(X)
-                X = (X - X.min(axis=0))/(X.max(axis=0) - X.min(axis=0) + 1e-6)
-                y = (y - y.min(axis=0))/(y.max(axis=0) - y.min(axis=0) + 1e-6)
+                X = (X - X.mean(axis=0))/(X.std(axis=0) + 1e-6)
+                y = (y - y.mean(axis=0))/(y.std(axis=0) + 1e-6)
 
                 # all_corr.append(np.corrcoef(X[:, 0], X[:, 1])[0, 1])
                 # all_corr.append(np.corrcoef(X[:, 0], X[:, 2])[0, 1])
@@ -396,7 +395,7 @@ def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', c
         # results_bermi_paired_ess = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_{cond}essinit0.0_annealed_schedulefree_binz2022.npz')    
         ax.errorbar(x=np.arange(10), y=(results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).mean(0),
                     yerr=(results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).std(0) / np.sqrt(num_tasks),
-                    label=f'BERMI $\lambda={str(ess)}$', c=colors[i + 1])
+                    label=f'{"BERMI" if source == "claude" else "BMI"} $\lambda={str(ess)}$', c=colors[i + 1])
         mean_accs.append((results_bermi_paired_ess['per_trial_model_accuracy'] / num_tasks).mean())
         ess_list.append(ess)
         norms_list.append(results_bermi_paired_ess['l2_norms'].mean())
@@ -421,7 +420,6 @@ def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', c
     plt.yticks(fontsize=FONTSIZE-2)
     plt.ylim(0.45, 1.) # set y axis limit between 0.5 and 1.
     sns.despine()
-    plt.legend(frameon=False,fontsize=FONTSIZE-4)
     plt.show()
     plt.savefig(f'{SYS_PATH}/figures/binz2022_meanperformance_vs_ess_{source}_{condition}_exp{experiment_id}.png')
 
@@ -435,7 +433,6 @@ def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', c
     plt.yticks(fontsize=FONTSIZE-3)
     plt.ylim(0.45, 1.) # set y axis limit between 0.5 and 1.
     sns.despine()
-    plt.legend(frameon=False,fontsize=FONTSIZE-4)
     plt.show()
     plt.savefig(f'{SYS_PATH}/figures/binz2022_meanperformance_vs_norm_{source}_{condition}_exp{experiment_id}.png')
     

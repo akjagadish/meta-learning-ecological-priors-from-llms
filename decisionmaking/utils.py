@@ -125,15 +125,12 @@ def induce_pseudo_condition_llm_generated_data(condition='ranked'):
 
             # linear regression from X_linear to y
             linear_regresion = sm.OLS(y, X_linear).fit()
-
-            # order the features based on the ranking of the coefficients
-            if condition == 'ranking':
-                order = np.argsort(np.abs(linear_regresion.params[1:]))[::-1]
-                # reorder the features in the data frame
-                data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[i] for i in order]).tolist()))
-            elif condition == 'direction':
-                sign = np.sign(linear_regresion.params[1:])
-                # change the sign of the features in the data frame
-                data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[i]*sign[i] for i in range(len(sign))]).tolist()))
+            order = np.argsort(np.abs(linear_regresion.params[1:]))[::-1]
+            sign = np.sign(linear_regresion.params[1:])
+            if condition == 'ranked':# shuffle the sign of the features so that there is structure
+                sign = np.random.choice([-1, 1], len(sign)) # - sign if np.random.rand() > 0.95 else
+            elif condition == 'direction': # shuffle the order of the features so that there is no structure
+                np.random.shuffle(order)
+            data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[order_idx]*sign[order_idx] for _, order_idx in enumerate(order)]).tolist()))                                                                              
     
     data.to_csv(f'{env_name}_pseudo{condition}.csv', index=False)
