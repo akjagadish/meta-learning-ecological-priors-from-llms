@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import sys
 import os
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from scipy.optimize import curve_fit
+from sklearn.metrics import mean_squared_error
+import statsmodels.api as sm
 SYS_PATH = '/u/ajagadish/ermi'
 sys.path.append(f"{SYS_PATH}/functionlearning/")
 # sys.path.append(f"{SYS_PATH}/categorisation/rl2")
@@ -19,14 +24,6 @@ FONTSIZE = 20
 
 
 def plot_functionlearning_data_statistics(mode=0):
-
-    from sklearn.preprocessing import PolynomialFeatures
-    import statsmodels.api as sm
-
-    def gini_compute(x):
-        mad = np.abs(np.subtract.outer(x, x)).mean()
-        rmad = mad/np.mean(x)
-        return 0.5 * rmad
 
     def calculate_bic(n, rss, num_params):
         bic = n * np.log(rss/n) + num_params * np.log(n)
@@ -140,13 +137,13 @@ def plot_functionlearning_data_statistics(mode=0):
 
     # set env_name and color_stats based on mode
     if mode == 0:
-        env_name = f'{SYS_PATH}/functionlearning/data/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2'
+        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2'
         color_stats = '#405A63'  # '#2F4A5A'# '#173b4f'
-    # elif mode == 1:  # last plot
-    #     env_name = f'{SYS_PATH}/functionlearning/data/linear_data'
-    #     color_stats = '#66828F'  # 5d7684'# '#5d7684'
+    elif mode == 1:  # last plot
+        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/synthetic_functionlearning_tasks_dim1_data25_tasks10000'
+        color_stats = '#66828F'  # 5d7684'# '#5d7684'
     elif mode == 2:  # first plot
-        env_name = f'{SYS_PATH}/functionlearning/data/real_data'
+        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/real_data'
         color_stats = '#173b4f'  # '#0D2C3D' #'#8b9da7'
     # elif mode == 3:
     #     env_name = f'{SYS_PATH}/functionlearning/data/synthetic_tasks_dim4_data650_tasks1000_nonlinearTrue'
@@ -230,3 +227,256 @@ def plot_functionlearning_data_statistics(mode=0):
     if not os.path.exists(f'{SYS_PATH}/functionlearning/data/stats/stats_{str(mode)}.npz'):
         np.savez(f'{SYS_PATH}/functionlearning/data/stats/stats_{str(mode)}.npz', all_corr=all_corr, gini_coeff=gini_coeff, posterior_logprob=posterior_logprob, all_accuraries_linear=all_accuraries_linear,
                  all_accuraries_polynomial=all_accuraries_polynomial, all_targets_with_norm=all_targets_with_norm, all_features_with_norm=all_features_with_norm)
+
+def proportion_function_types(mode, first=False):
+
+    # set env_name and color_stats based on mode
+    if mode == 0:
+        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2'
+        color_stats = '#405A63'  # '#2F4A5A'# '#173b4f'
+    elif mode == 1:  # last plot
+        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/synthetic_functionlearning_tasks_dim1_data25_tasks10000'
+        color_stats = '#66828F'  # 5d7684'# '#5d7684'
+    elif mode == 2:  # first plot
+        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/real_data'
+        color_stats = '#173b4f'  # '#0D2C3D' #'#8b9da7'
+
+    # Load the dataset
+    df = pd.read_csv(f'{env_name}.csv')
+    #TODO: all tasks or random tasks
+    max_tasks = 1000
+    tasks = range(0, max_tasks) if first else np.random.choice(df.task_id.unique(), max_tasks, replace=False)
+    df = df[df['task_id'].isin(tasks)]
+
+    # Normalize the input and target columns
+    df['input'] = df['input'].apply(lambda x: eval(x)[0])
+    df['input'] = df.groupby('task_id')['input'].transform(lambda x: x / x.max())
+    df['target'] = df.groupby('task_id')['target'].transform(lambda x: x / x.max())
+
+    # Define functions for cubic, quadratic, and exponential models
+    def cubic_model(x, a, b, c, d):
+        return a * x**3 + b * x**2 + c * x + d
+
+    def quadratic_model(x, a, b, c):
+        return a * x**2 + b * x + c
+
+    def exponential_model(x, a, b, c):
+        return a * np.exp(b * x) + c
+    
+    def linear_model(x, a, b):
+        return a * x + b
+
+    # Calculate BIC
+    def calculate_bic(y, y_pred, num_params):
+        n = len(y)
+        mse = mean_squared_error(y, y_pred)
+        bic = n * np.log(mse) + num_params * np.log(n)
+        return bic
+
+    # Initialize a list to store model parameters
+    model_params = []
+    import warnings
+    from scipy.optimize import OptimizeWarning
+    # Group by task_id and fit models for each task
+    for task_id, group in df.groupby('task_id'):
+        X = group['input'].values
+        y = group['target'].values
+        try:
+            # Fit linear model
+            # linear_model = LinearRegression()
+            # linear_model.fit(X.reshape(-1, 1), y)
+            # linear_bic = calculate_bic(y, linear_model.predict(X.reshape(-1, 1)), 2)
+            # Fit linear model
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", OptimizeWarning)
+                    popt_linear, _ = curve_fit(linear_model, X, y)
+                    linear_bic = calculate_bic(y, linear_model(X, *popt_linear), len(popt_linear))
+            except (ValueError, RuntimeError, OptimizeWarning) as e:
+                print(f"Warning: {e}")
+                linear_bic = float('inf')
+
+            # Fit quadratic model
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", OptimizeWarning)
+                    popt_quad, _ = curve_fit(quadratic_model, X, y)
+                    quad_bic = calculate_bic(y, quadratic_model(X, *popt_quad), len(popt_quad))
+            except (ValueError, RuntimeError, OptimizeWarning) as e:
+                print(f"Warning: {e}")
+                quad_bic = float('inf')
+
+            # Fit cubic model
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", OptimizeWarning)
+                    popt_cubic, _ = curve_fit(cubic_model, X, y)
+                    cubic_bic = calculate_bic(y, cubic_model(X, *popt_cubic), len(popt_cubic))
+            except (ValueError, RuntimeError, OptimizeWarning) as e:
+                print(f"Warning: {e}")
+                cubic_bic = float('inf')
+
+            # Fit exponential model
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", OptimizeWarning)
+                    popt_exp, _ = curve_fit(exponential_model, X, y)
+                    exp_bic = calculate_bic(y, exponential_model(X, *popt_exp), len(popt_exp))
+            except (ValueError, RuntimeError, OptimizeWarning) as e:
+                print(f"Warning: {e}")
+                exp_bic = float('inf')
+
+            # Select the best model based on BIC
+            bics = {'linear': linear_bic,  'quadratic': quad_bic, 'exponential': exp_bic,  'cubic': cubic_bic}
+            # best_model = min(bics, key=bics.get)
+            # skip of any bic is inf
+            # if best_model == 'linear':
+            #     params = {'model': 'linear', 'slope': popt_linear[0], 'intercept': popt_linear[1], 'bic': linear_bic}
+            # elif best_model == 'quadratic':
+            #     params = {'model': 'quadratic', 'a': popt_quad[0], 'b': popt_quad[1], 'c': popt_quad[2], 'bic': quad_bic}
+            # elif best_model == 'cubic':
+            #     params = {'model': 'cubic', 'a': popt_cubic[0], 'b': popt_cubic[1], 'c': popt_cubic[2], 'd': popt_cubic[3], 'bic': cubic_bic}
+            # elif best_model == 'exponential':
+            #     params = {'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'bic': exp_bic}
+            # params['task_id'] = task_id
+            # model_params.append(params)
+
+            if any([bic == float('inf') for bic in bics.values()]):
+                continue
+
+            # save all model params and bics
+            linear_params = {'task_id': task_id, 'model': 'linear', 'slope': popt_linear[0], 'intercept': popt_linear[1], 'bic': linear_bic}
+            quad_params = {'task_id': task_id, 'model': 'quadratic', 'a': popt_quad[0], 'b': popt_quad[1], 'c': popt_quad[2], 'bic': quad_bic}
+            cubic_params = {'task_id': task_id, 'model': 'cubic', 'a': popt_cubic[0], 'b': popt_cubic[1], 'c': popt_cubic[2], 'd': popt_cubic[3], 'bic': cubic_bic}
+            exp_params = {'task_id': task_id, 'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'bic': exp_bic}
+            model_params.append(linear_params)
+            model_params.append(quad_params)
+            model_params.append(cubic_params)
+            model_params.append(exp_params)
+            
+        except Exception as e:
+            print(e)
+
+    # Create a DataFrame from the model parameters
+    model_params_df = pd.DataFrame(model_params)
+    # compute total bics for each model
+    model_bics = model_params_df.groupby('model')['bic'].sum()
+    # sort the models based on the total bics
+    model_bics = model_bics.sort_values(ascending=True)
+    # compute the proportion of each model being the best model
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x=model_bics.index, y=model_bics.values, palette=['blue', 'green', 'red', 'purple'], ax=ax)
+    sns.despine()
+    ax.set_ylabel('Proportion', fontsize=FONTSIZE)
+    ax.set_xlabel('Model', fontsize=FONTSIZE)
+    # ax.set_title('Proportions of Different Models Being the Best Model', fontsize=FONTSIZE)
+    ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+    plt.grid(visible=False)
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_proportion_function_types_{str(mode)}.svg', bbox_inches='tight')
+
+    # Create a bar plot for the fitted parameters of the linear model
+    linear_params_df = model_params_df[model_params_df['model'] == 'linear']
+    fig, ax = plt.subplots(figsize=(10, 6))
+    proc_df = pd.DataFrame({'Slope': linear_params_df['slope'], 'Intercept': linear_params_df['intercept']})
+    sns.barplot(data=proc_df, capsize=.1, errorbar="sd", ax=ax)
+    sns.despine()
+    ax.set_ylabel('Fitted parameters values', fontsize=FONTSIZE)
+    ax.set_xlabel('Parameter', fontsize=FONTSIZE)
+    # ax.set_title('Fitted Parameters of the Linear Model', fontsize=FONTSIZE)
+    plt.grid(visible=False)
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_fitted_parameters_linear_model_{str(mode)}.svg', bbox_inches='tight')
+
+    # find top-3 functions from each model type based on the fitted bics and plot them as line plots
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for model in ['linear', 'quadratic',  'exponential']:#'cubic',
+        top_3 = model_params_df[model_params_df['model'] == model].sort_values('bic').head(5)
+        for i, row in top_3.iterrows():
+            task_data = df[df['task_id'] == row['task_id']]
+            sns.lineplot(x=task_data['input'], y=task_data['target'], ax=ax)
+        sns.despine()
+        ax.set_ylabel('Target', fontsize=FONTSIZE)
+        ax.set_xlabel('Input', fontsize=FONTSIZE)
+    plt.xticks(fontsize=FONTSIZE-2)
+    plt.yticks(fontsize=FONTSIZE-2)
+    plt.title('Sampled functions', fontsize=FONTSIZE)
+    sns.despine()
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_top3_{model}_functions_{str(mode)}.svg', bbox_inches='tight')
+
+def model_simulations():
+
+    data = pd.read_csv(f'/u/ajagadish/ermi/functionlearning/data/human/little2022functionestimation.csv')
+    num_tasks = data.task.max()+1
+    policy='greedy'
+    results_ermi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/task=little2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=None.npz')
+
+    # scatter plot: model predictions vs. targets
+    plt.scatter(results_ermi['model_preds'].mean(0), results_ermi['targets'].mean(0))                             
+    plt.ylabel('targets')
+    plt.xlabel('model preds')
+    sns.despine()
+    plt.legend(loc='lower right')
+    plt.title(f"ERMI: little 2022")
+    plt.legend(frameon=False)
+    plt.show()
+
+    ## ordering of difficulty of ermi and mi models
+    sns.set(style="whitegrid")
+    policy = 'greedy'
+
+    # Load the data
+    results_mi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic_syntheticfunctionlearning.npz')
+    results_ermi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_syntheticfunctionlearning.npz')
+
+    # Extract unique functions and calculate MSE for results_ermi
+    functions = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis'] #$np.unique(results_ermi['ground_truth_functions'])
+    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': []}
+    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': []}
+    for function in functions:
+        mse = results_ermi['model_errors'].squeeze()[(results_ermi['ground_truth_functions'] == function)].mean()
+        error_dict_ermi['Function'].append(function)
+        error_dict_ermi['MSE'].append(mse)
+        error_dict_ermi['Dataset'].append('ERMI')
+        
+        mse = results_mi['model_errors'].squeeze()[(results_mi['ground_truth_functions'] == function)].mean()
+        error_dict_mi['Function'].append(function)
+        error_dict_mi['MSE'].append(mse)
+        error_dict_mi['Dataset'].append('MI')
+
+    # Combine the data into a single DataFrame
+    df_ermi = pd.DataFrame(error_dict_ermi)
+    df_mi = pd.DataFrame(error_dict_mi)
+    df_combined = pd.concat([df_ermi, df_mi])
+
+    # Plot the combined data
+    plt.figure(figsize=(10, 5))
+    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, errorbar="sd")
+    sns.despine()
+    plt.legend(frameon=False)
+    plt.ylabel('MSE between model and ground truth')
+    plt.grid(visible=False)
+    plt.show()
+
+    # ordering of difficulty of ermi and mi models
+    df = pd.read_csv(f'{SYS_PATH}/functionlearning/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2.csv')
+    num_tasks = 100
+    random_tasks = np.random.randint(low=df['task_id'].min(), high=df['task_id'].max(), size=num_tasks)
+    # keep only first num_tasks
+    df = df[df['task_id'].isin(random_tasks)]
+    df['input'] = df['input'].apply(lambda x: eval(x)[0])
+    # max normalization
+    df['input'] = df.groupby('task_id')['input'].transform(lambda x: x / x.max())
+    df['target'] = df.groupby('task_id')['target'].transform(lambda x: x / x.max())
+
+    # plot scatter plot of input vs target colored by task
+    plt.figure(figsize=(10,10))
+    sns.lineplot(x='input', y='target', hue='task_id', data=df, legend=False, alpha=0.8, linewidth=0.8)
+    plt.xlabel('Input', fontsize=FONTSIZE)
+    plt.ylabel('Target', fontsize=FONTSIZE)
+    plt.xticks(fontsize=FONTSIZE-2)
+    plt.yticks(fontsize=FONTSIZE-2)
+    plt.title('Sampled functions', fontsize=FONTSIZE)
+    sns.despine()
+    plt.show()
