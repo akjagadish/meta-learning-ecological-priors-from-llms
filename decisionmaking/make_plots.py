@@ -21,6 +21,8 @@ plot_decisionmaking_data_statistics(1, dim=2, condition='synthetic')
 plot_decisionmaking_data_statistics(0, dim=4, condition='ranked')
 plot_decisionmaking_data_statistics(0, dim=4, condition='direction')
 plot_decisionmaking_data_statistics(0, dim=4, condition='unknown')
+plot_decisionmaking_data_statistics(1, dim=4, condition='ranked')
+plot_decisionmaking_data_statistics(1, dim=4, condition='direction')
 plot_decisionmaking_data_statistics(
     2, dim=4, condition='openML', method='random')
 plot_decisionmaking_data_statistics(
