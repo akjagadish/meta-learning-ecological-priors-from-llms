@@ -20,3 +20,4 @@ export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 python mi/simulate_data.py --num-tasks 10000 --num-dims 4 --max-steps 20 --paradigm decisionmaking
 python mi/simulate_data.py --num-tasks 400 --num-dims 4 --max-steps 20 --paradigm decisionmaking --ranked
 python mi/simulate_data.py --num-tasks 400 --num-dims 4 --max-steps 20 --paradigm decisionmaking --direction
+python mi/simulate_data.py --num-tasks 400 --num-dims 4 --max-steps 20 --paradigm decisionmaking
