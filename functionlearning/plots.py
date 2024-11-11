@@ -234,10 +234,10 @@ def proportion_function_types(mode, first=False):
     if mode == 0:
         env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2'
         color_stats = '#405A63'  # '#2F4A5A'# '#173b4f'
-    elif mode == 1:  # last plot
+    elif mode == 1:  
         env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/synthetic_functionlearning_tasks_dim1_data25_tasks10000'
         color_stats = '#66828F'  # 5d7684'# '#5d7684'
-    elif mode == 2:  # first plot
+    elif mode == 2: 
         env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/real_data'
         color_stats = '#173b4f'  # '#0D2C3D' #'#8b9da7'
 
@@ -405,43 +405,24 @@ def proportion_function_types(mode, first=False):
     plt.show()
     plt.savefig(f'{SYS_PATH}/figures/functionlearning_top3_{model}_functions_{str(mode)}.svg', bbox_inches='tight')
 
-def model_simulations():
-
-    data = pd.read_csv(f'/u/ajagadish/ermi/functionlearning/data/human/little2022functionestimation.csv')
-    num_tasks = data.task.max()+1
-    policy='greedy'
-    results_ermi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/task=little2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=None.npz')
-
-    # scatter plot: model predictions vs. targets
-    plt.scatter(results_ermi['model_preds'].mean(0), results_ermi['targets'].mean(0))                             
-    plt.ylabel('targets')
-    plt.xlabel('model preds')
-    sns.despine()
-    plt.legend(loc='lower right')
-    plt.title(f"ERMI: little 2022")
-    plt.legend(frameon=False)
-    plt.show()
-
-    ## ordering of difficulty of ermi and mi models
-    sns.set(style="whitegrid")
-    policy = 'greedy'
-
+def model_errors_function_types(FIGSIZE=(12, 6)):
     # Load the data
     results_mi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic_syntheticfunctionlearning.npz')
     results_ermi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_syntheticfunctionlearning.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
-    functions = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis'] #$np.unique(results_ermi['ground_truth_functions'])
+    functions = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis']
+    function_names = {'positive_linear': 'Positive Linear', 'negative_linear': 'Negative Linear', 'quadratic': 'Quadratic', 'radial_basis': 'Radial Basis'}
     error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': []}
     error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': []}
     for function in functions:
         mse = results_ermi['model_errors'].squeeze()[(results_ermi['ground_truth_functions'] == function)].mean()
-        error_dict_ermi['Function'].append(function)
+        error_dict_ermi['Function'].append(function_names[function])
         error_dict_ermi['MSE'].append(mse)
         error_dict_ermi['Dataset'].append('ERMI')
         
         mse = results_mi['model_errors'].squeeze()[(results_mi['ground_truth_functions'] == function)].mean()
-        error_dict_mi['Function'].append(function)
+        error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)
         error_dict_mi['Dataset'].append('MI')
 
@@ -451,32 +432,65 @@ def model_simulations():
     df_combined = pd.concat([df_ermi, df_mi])
 
     # Plot the combined data
-    plt.figure(figsize=(10, 5))
-    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, errorbar="sd")
+    sns.set(style="whitegrid")
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, errorbar="sd", ax=ax)
     sns.despine()
-    plt.legend(frameon=False)
-    plt.ylabel('MSE between model and ground truth')
+    ax.legend(frameon=False, fontsize=FONTSIZE-2)
+    ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
+    ax.set_xlabel('Function', fontsize=FONTSIZE)
+    ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
     plt.grid(visible=False)
     plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_error_function_types.png', bbox_inches='tight')
 
-    # ordering of difficulty of ermi and mi models
-    df = pd.read_csv(f'{SYS_PATH}/functionlearning/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2.csv')
-    num_tasks = 100
-    random_tasks = np.random.randint(low=df['task_id'].min(), high=df['task_id'].max(), size=num_tasks)
-    # keep only first num_tasks
-    df = df[df['task_id'].isin(random_tasks)]
-    df['input'] = df['input'].apply(lambda x: eval(x)[0])
-    # max normalization
-    df['input'] = df.groupby('task_id')['input'].transform(lambda x: x / x.max())
-    df['target'] = df.groupby('task_id')['target'].transform(lambda x: x / x.max())
+def model_extrapolation_deLosh1997():
+    pass
 
-    # plot scatter plot of input vs target colored by task
-    plt.figure(figsize=(10,10))
-    sns.lineplot(x='input', y='target', hue='task_id', data=df, legend=False, alpha=0.8, linewidth=0.8)
-    plt.xlabel('Input', fontsize=FONTSIZE)
-    plt.ylabel('Target', fontsize=FONTSIZE)
-    plt.xticks(fontsize=FONTSIZE-2)
-    plt.yticks(fontsize=FONTSIZE-2)
-    plt.title('Sampled functions', fontsize=FONTSIZE)
+def model_comparison_little2024(FIGSIZE=(5,5)):
+    sns.set(style="whitegrid")
+    task_name = 'little2022'
+    ess = 0.0
+    results_mi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/task={task_name}_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(float(ess/4))}.npz')
+    results_ermi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/task={task_name}_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(float(ess/4))}.npz')
+    ref = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic.npz')
+    #results_bermi = np.load(f'')
+    #results_bmi = np.load(f'')
+
+    df = pd.DataFrame.from_dict({
+                                # 'BERMI':results_bermi['model_errors'].mean(1),
+                                'ERMI':results_ermi['model_errors'].mean(1),
+                                'MI':results_mi['model_errors'].mean(1),
+                                })
+
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    sns.barplot(data=df, capsize=.1, errorbar="sd", ax=ax)
+    sns.swarmplot(data=df, color="0", alpha=.35, ax=ax)
     sns.despine()
+    ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
+    ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+    plt.grid(visible=False)
     plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024.png', bbox_inches='tight')
+
+    subjects =  [np.argmin(results_ermi['model_errors'].mean(1)), np.argmin(results_mi['model_errors'].mean(1)), ] # best parrticipant for each model
+    num_functions = results_ermi['human_preds'].shape[1]
+    num_participants=results_ermi['model_preds'].shape[0]
+    for subject in subjects:
+        sns.set(style="whitegrid")
+        fig, axs = plt.subplots(1, num_functions, figsize=(6*num_functions, 4))
+        for function in range(num_functions):
+            axs[function].plot(results_ermi['human_preds'][subject, function, :, 0], results_ermi['model_preds'].reshape(num_participants, 6, 24)[subject, function], label='ERMI')
+            axs[function].plot(results_mi['human_preds'][subject, function, :, 0], results_mi['model_preds'].reshape(num_participants, 6, 24)[subject, function], label='MI')
+            axs[function].plot(ref['human_preds'][subject, function, :, 0], ref['human_preds'][subject, function, :, 1], c='green', lw=3, label='Human')
+            axs[function].scatter(results_ermi['ground_truth_functions'][subject, function, :, 0], results_ermi['ground_truth_functions'][subject, function, :, 1], c='black', label="Ground Truth")
+            if function == 0:
+                axs[function].set_xlabel('Input', fontsize=FONTSIZE)
+                axs[function].set_ylabel('Target', fontsize=FONTSIZE)
+                axs[function].legend(frameon=False, fontsize=FONTSIZE-4)
+            axs[function].tick_params(axis='both', which='major', labelsize=FONTSIZE-4)
+            axs[function].grid(visible=False)
+            sns.despine()
+            plt.tight_layout()
+            plt.show()
+            plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}.png', bbox_inches='tight')
