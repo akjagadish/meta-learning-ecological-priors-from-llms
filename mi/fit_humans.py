@@ -220,32 +220,53 @@ def grid_search(args):
     return np.array(pr2s), np.array(nlls), accs, parameters
 
 def find_best_model_gs(args):
+
+    if args.task_name == 'badham2017':
+        raise NotImplementedError
+    elif args.task_name == 'devraj2022':
+       raise NotImplementedError
+    elif args.task_name == 'binz2022':
+        data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{args.exp_id}.csv')
+        conditions = ['unknown', 'rank', 'pseudoranked'] if args.exp_id == 1 else ['unknown', 'direction', 'pseudodirection'] if args.exp_id == 2 else ['unknown']
+        bermi_esses = np.array([0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0])
+        ermi_esses = np.array([0.0])
+    elif args.task_name == 'little2022':
+        data = pd.read_csv(f'{PARADIGM_PATH}/data/human/little2022functionestimation.csv')
+        num_points = 24 # 6 or 24
+        scale = 2 # 1 is zoomed in or 2 is zoomed out
+        data = data.groupby('participant').filter(lambda x: len(x.task.unique()) == num_points) 
+        data = data[(data.num_points==num_points) & (data.scale==scale)]
+        conditions = ['unknown']
+        bermi_esses = np.array([0.0, 0.25, 0.5, 0.75, 1., 1.25, 1.5, 1.75, 2., 2.25, 2.5, 2.75, 3., 3.25, 3.5, 3.75, 4., 4.25, 4.5, 4.75, 5., 5.25, 5.5, 5.75, 6., 6.25, 6.5, 6.75, 7., 7.25, 7.5, 7.75, 8.])
+        ermi_esses = np.array([0.0])
+    else:
+        raise NotImplementedError
     
-    bermi_esses = np.array([0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0])
-    ermi_esses = np.array([0.0])
-    data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{args.exp_id}.csv')
     sources = ['claude', 'synthetic']
-    conditions = ['unknown', 'rank', 'pseudoranked'] if args.exp_id == 1 else ['unknown', 'direction', 'pseudodirection'] if args.exp_id == 2 else ['unknown']
-    
     for condition in conditions:
         for source in sources:
             if source == 'synthetic' and ('pseudo' in condition):
                 continue
             for esses in [bermi_esses, ermi_esses]:
-                fitted_beta = np.zeros((len(esses), data.participant.max()+1))
-                fitted_nlls = np.zeros((len(esses), data.participant.max()+1))
+                fitted_beta = np.zeros((len(esses), len(data.participant.unique())))
+                fitted_nlls = np.zeros((len(esses), len(data.participant.unique())))
                 for idx, ess in enumerate(esses):
-                    results = np.load(f'{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_ess={str(float(ess))}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
-                    fitted_beta[idx] = results['betas'][:, 0]
-                    fitted_nlls[idx] = results['nlls']
+                    method = 'unbounded' if ess == 0 and len(esses)==1  else 'bounded'
+                    if args.paradigm == 'decisionmaking':
+                        results = np.load(f'{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_ess={str(float(ess))}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
+                        fitted_beta[idx] = results['betas'][:, 0]
+                        fitted_nlls[idx] = results['nlls']
+                        save_name = f"task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss=nll_paired=True_method={method}_optimizer=grid_search_numiters=5"
+                    elif args.paradigm == 'functionlearning':
+                        results = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss=nll_paired=False_policy=greedy_ess={str(float(ess))}.npz')
+                        fitted_nlls[idx] = results['model_errors'].mean(1).squeeze()
+                        save_name = f"task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss=nll_paired=False_method={method}"
 
                 best_idx = np.argmin(fitted_nlls, axis=0)
                 best_ess = esses[best_idx]
-                best_beta = fitted_beta[best_idx, np.arange(data.participant.max()+1)]
+                best_beta = fitted_beta[best_idx, np.arange(len(data.participant.unique()))] if args.paradigm == 'decisionmaking' else np.zeros(data.participant.max()+1)
                 best_nlls = fitted_nlls.min(0)
-
-                method = 'unbounded' if ess == 0 and len(esses)==1  else 'bounded'
-                np.savez(f"{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss=nll_paired=True_method={method}_optimizer=grid_search_numiters=5.npz", ess=best_ess, beta=best_beta, nlls=best_nlls)
+                np.savez(f"{PARADIGM_PATH}/data/model_comparison/{save_name}.npz", ess=best_ess, beta=best_beta, nlls=best_nlls)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
