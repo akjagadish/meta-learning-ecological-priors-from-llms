@@ -411,8 +411,8 @@ def proportion_function_types(mode, first=False):
 
 def model_errors_function_types(FIGSIZE=(12, 6)):
     # Load the data
-    results_mi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic_syntheticfunctionlearning.npz')
-    results_ermi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_syntheticfunctionlearning.npz')
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic_syntheticfunctionlearning.npz')
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_syntheticfunctionlearning.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
     functions = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis']
@@ -455,16 +455,17 @@ def model_comparison_little2024(FIGSIZE=(5,5)):
     sns.set(style="whitegrid")
     task_name = 'little2022'
     ess = 0.0
-    results_mi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/task={task_name}_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(float(ess/4))}.npz')
-    results_ermi = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/task={task_name}_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(float(ess/4))}.npz')
-    ref = np.load(f'/u/ajagadish/ermi/functionlearning/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic.npz')
-    #results_bermi = np.load(f'')
-    #results_bmi = np.load(f'')
+    mi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=little2022_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_method=unbounded.npz')
+    ermi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=little2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_method=unbounded.npz')
+    bermi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=little2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_method=bounded.npz')
+    bmi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=little2022_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_method=bounded.npz')
+    ref = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic.npz')
 
     df = pd.DataFrame.from_dict({
-                                # 'BERMI':results_bermi['model_errors'].mean(1),
-                                'ERMI':results_ermi['model_errors'].mean(1),
-                                'MI':results_mi['model_errors'].mean(1),
+                                'BERMI':bermi['nlls'],
+                                'BMI':bmi['nlls'],
+                                'ERMI':ermi['nlls'],
+                                'MI':mi['nlls'],
                                 })
 
     fig, ax = plt.subplots(figsize=FIGSIZE)
@@ -477,17 +478,25 @@ def model_comparison_little2024(FIGSIZE=(5,5)):
     plt.show()
     plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024.png', bbox_inches='tight')
 
-    subjects =  [np.argmin(results_ermi['model_errors'].mean(1)), np.argmin(results_mi['model_errors'].mean(1)), ] # best parrticipant for each model
-    num_functions = results_ermi['human_preds'].shape[1]
-    num_participants=results_ermi['model_preds'].shape[0]
-    for subject in subjects:
+    results_bermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(bermi["ess"][np.argmin(bermi["nlls"])])}.npz')
+    results_bmi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(bmi["ess"][np.argmin(bmi["nlls"])])}.npz')
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    models = [results_bermi, results_bmi, results_ermi, results_mi]
+    subjects =  [np.argmin(bermi['nlls']), np.argmin(bmi['nlls']), np.argmin(ermi['nlls']), np.argmin(mi['nlls'])] # best parrticipant for each model
+    model_names = ['BERMI', 'BMI', 'ERMI', 'MI']
+
+    num_functions = ref['human_preds'].shape[1]
+    num_participants = ref['model_preds'].shape[0]
+    num_data = 24
+    for (subject, model, model_name) in zip(subjects, models, model_names):
         sns.set(style="whitegrid")
         fig, axs = plt.subplots(1, num_functions, figsize=(6*num_functions, 4))
         for function in range(num_functions):
-            axs[function].plot(results_ermi['human_preds'][subject, function, :, 0], results_ermi['model_preds'].reshape(num_participants, 6, 24)[subject, function], label='ERMI')
-            axs[function].plot(results_mi['human_preds'][subject, function, :, 0], results_mi['model_preds'].reshape(num_participants, 6, 24)[subject, function], label='MI')
-            axs[function].plot(ref['human_preds'][subject, function, :, 0], ref['human_preds'][subject, function, :, 1], c='green', lw=3, label='Human')
-            axs[function].scatter(results_ermi['ground_truth_functions'][subject, function, :, 0], results_ermi['ground_truth_functions'][subject, function, :, 1], c='black', label="Ground Truth")
+            axs[function].plot(model['human_preds'][subject, function, :, 0], model['model_preds'].reshape(num_participants, num_functions, num_data)[subject, function], lw=2, label=model_name)
+            axs[function].scatter(ref['ground_truth_functions'][subject, function, :, 0], ref['ground_truth_functions'][subject, function, :, 1], c='black', label="Ground Truth")
+            axs[function].plot(ref['human_preds'][subject, function, :, 0], ref['human_preds'][subject, function, :, 1], c='green', lw=2, label='Human')
+            
             if function == 0:
                 axs[function].set_xlabel('Input', fontsize=FONTSIZE)
                 axs[function].set_ylabel('Target', fontsize=FONTSIZE)
@@ -497,4 +506,4 @@ def model_comparison_little2024(FIGSIZE=(5,5)):
             sns.despine()
             plt.tight_layout()
             plt.show()
-            plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}.png', bbox_inches='tight')
+            plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}_model{model_name}.png', bbox_inches='tight')
