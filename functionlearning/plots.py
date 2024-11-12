@@ -15,11 +15,15 @@ from sklearn.preprocessing import PolynomialFeatures
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 import statsmodels.api as sm
-SYS_PATH = '/u/ajagadish/ermi'
-sys.path.append(f"{SYS_PATH}/functionlearning/")
-# sys.path.append(f"{SYS_PATH}/categorisation/rl2")
-sys.path.append(f"{SYS_PATH}/functionlearning/data")
-# from evaluate import evaluate_metalearner
+from os import getenv
+from dotenv import load_dotenv
+from sklearn.preprocessing import PolynomialFeatures
+import statsmodels.api as sm
+load_dotenv()
+SYS_PATH = getenv('BERMI_DIR')
+PARADIGM_PATH = f"{SYS_PATH}/functionlearning"
+sys.path.append(PARADIGM_PATH)
+sys.path.append(f"{PARADIGM_PATH}/data")
 FONTSIZE = 20
 
 
