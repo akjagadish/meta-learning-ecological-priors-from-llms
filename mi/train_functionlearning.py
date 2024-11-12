@@ -37,6 +37,10 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_i
     # setup optimizer
     if optim == 'schedulefree':
         optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=lr, weight_decay=ess_init)
+    elif optim == 'adamw':
+            ess_init = ess_init or ess
+            optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=ess_init)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=start_id, T_max=num_episodes)
     else:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     losses = []  # keep track of losses
@@ -46,6 +50,8 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_i
     for t in tqdm(range(start_id, int(num_episodes))):
         if optim == 'schedulefree':
             optimizer.train()
+        elif optim != 'schedulefree' and t > 0:
+            scheduler.step()
         model.train()
         # sample batch
         packed_inputs, sequence_lengths, targets = env.sample_batch()
@@ -81,7 +87,8 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_i
             torch.save([t, model.state_dict(), optimizer.state_dict(), ess], save_dir)
             experiment = 'synthetic' if synthetic else 'llm_generated'
             acc = evaluate_regression(env_name=env_name, model_path=save_dir, experiment=experiment,
-                                      env=None, model=model, mode='val', loss='mse', shuffle_trials=shuffle, max_steps=max_steps, num_dims=num_dims, device=device)
+                                      env=None, model=model, mode='val', loss='mse', shuffle_trials=shuffle, max_steps=max_steps, 
+                                      num_dims=num_dims, optimizer=optimizer, optim=optim, device=device)
             accuracy.append(acc)
             wandb.log({"Val. Acc.": acc, "episode": t})
 
