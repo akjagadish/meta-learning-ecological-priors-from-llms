@@ -237,7 +237,8 @@ def find_best_model_gs(args):
         data = data.groupby('participant').filter(lambda x: len(x.task.unique()) == num_points) 
         data = data[(data.num_points==num_points) & (data.scale==scale)]
         conditions = ['unknown']
-        bermi_esses = np.array([0.0, 0.25, 0.5, 0.75, 1., 1.25, 1.5, 1.75, 2., 2.25, 2.5, 2.75, 3., 3.25, 3.5, 3.75, 4., 4.25, 4.5, 4.75, 5., 5.25, 5.5, 5.75, 6., 6.25, 6.5, 6.75, 7., 7.25, 7.5, 7.75, 8.])
+        bermi_esses = np.array([0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0])
+        #np.array([0.0, 0.25, 0.5, 0.75, 1., 1.25, 1.5, 1.75, 2., 2.25, 2.5, 2.75, 3., 3.25, 3.5, 3.75, 4., 4.25, 4.5, 4.75, 5., 5.25, 5.5, 5.75, 6., 6.25, 6.5, 6.75, 7., 7.25, 7.5, 7.75, 8.])
         ermi_esses = np.array([0.0])
     else:
         raise NotImplementedError
