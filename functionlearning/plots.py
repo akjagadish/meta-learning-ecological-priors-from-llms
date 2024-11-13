@@ -411,24 +411,30 @@ def proportion_function_types(mode, first=False):
 
 def model_errors_function_types(FIGSIZE=(12, 6)):
     # Load the data
-    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic_syntheticfunctionlearning.npz')
-    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_syntheticfunctionlearning.npz')
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=syntheticfunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=syntheticfunctionlearning_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
     functions = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis']
     function_names = {'positive_linear': 'Positive Linear', 'negative_linear': 'Negative Linear', 'quadratic': 'Quadratic', 'radial_basis': 'Radial Basis'}
-    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': []}
-    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': []}
+    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
+    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
     for function in functions:
         mse = results_ermi['model_errors'].squeeze()[(results_ermi['ground_truth_functions'] == function)].mean()
+        num_trials = results_ermi['per_trial_model_errors'].shape[-1]
+        ground_truth_functions_repeated = np.repeat(results_ermi['ground_truth_functions'][:, :, np.newaxis], num_trials, axis=2).reshape(-1, num_trials)
+        per_trial_mse = results_ermi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_ermi['Function'].append(function_names[function])
         error_dict_ermi['MSE'].append(mse)
         error_dict_ermi['Dataset'].append('ERMI')
+        error_dict_ermi['Per_trial_MSE'].append(per_trial_mse)
         
         mse = results_mi['model_errors'].squeeze()[(results_mi['ground_truth_functions'] == function)].mean()
+        per_trial_mse = results_mi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)
         error_dict_mi['Dataset'].append('MI')
+        error_dict_mi['Per_trial_MSE'].append(per_trial_mse)
 
     # Combine the data into a single DataFrame
     df_ermi = pd.DataFrame(error_dict_ermi)
@@ -447,6 +453,23 @@ def model_errors_function_types(FIGSIZE=(12, 6)):
     plt.grid(visible=False)
     plt.show()
     plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_error_function_types.png', bbox_inches='tight')
+
+    # Plot the per-trial MSE
+    sns.set(style="whitegrid")
+    for dataset in df_combined['Dataset'].unique():
+        fig, ax = plt.subplots(figsize=FIGSIZE)
+        for function in df_combined['Function'].unique():
+            subset = df_combined[(df_combined['Function'] == function) & (df_combined['Dataset'] == dataset)]
+            per_trial_mse = np.array(subset['Per_trial_MSE'].values[0])
+            ax.plot(per_trial_mse.mean(axis=0), label=f'{function}', lw=2)
+        ax.set_xlabel('Trial', fontsize=FONTSIZE)
+        ax.set_ylabel('MSE', fontsize=FONTSIZE)
+        ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+        ax.legend(frameon=False, fontsize=FONTSIZE-2)
+        plt.grid(visible=False)
+        sns.despine()
+        plt.show()
+        plt.savefig(f'{SYS_PATH}/figures/functionlearning_per_trial_mse_function_types_{dataset}.png', bbox_inches='tight')
 
 def model_extrapolation_deLosh1997():
     pass
