@@ -13,8 +13,8 @@ from torch.distributions import Bernoulli
 sys.path.insert(0, '/u/ajagadish/ermi/mi')
 SYS_PATH = '/u/ajagadish/ermi'
 
-def compute_mse(x, y, axis=1):
-    return ((x - y) ** 2).mean(axis=axis)
+def compute_mse(x, y, axis=1, per_trial=False):
+    return ((x - y) ** 2).mean(axis=axis) if not per_trial else ((x - y) ** 2)
 
 def compute_loglikelihood_human_choices_under_model(env=None, model_path=None, participant=0, beta=1., epsilon=0., policy='greedy', constraint=True, device='cpu', paired=False, **kwargs):
 
@@ -99,7 +99,7 @@ def compute_mses_human_predictions_under_model(env=None, model_path=None, partic
     
     #load model weights
     state_dict = torch.load(
-        model_path, map_location=torch.device('cpu'))[1]
+        model_path, map_location=torch.device('cpu'), weights_only=False)[1]
     model.load_state_dict(state_dict)
     model.to(device)
 
@@ -119,7 +119,8 @@ def compute_mses_human_predictions_under_model(env=None, model_path=None, partic
 
             # compute metrics
             model_error = compute_mse(model_preds, targets.unsqueeze(2))
-            return model_preds, model_error, targets, inputs, kernel_choices
+            per_trial_model_error = compute_mse(model_preds.squeeze(), targets, per_trial=True)
+            return model_preds, model_error, per_trial_model_error, targets, inputs, kernel_choices
         
         else:
 
@@ -137,7 +138,7 @@ def compute_mses_human_predictions_under_model(env=None, model_path=None, partic
                 sequence_lengths)], axis=0).squeeze().float()
             targets = targets.reshape(-1).float().to(device)
 
-            return model_preds, model_error, targets, human_preds, ground_truth_functions
+            return model_preds, model_error, None, targets, human_preds, ground_truth_functions
 
 
 def sample_model(args):
@@ -167,16 +168,17 @@ def sample_model(args):
     
     if args.task_name in ['little2022', 'syntheticfunctionlearning']:
 
-        model_errors, model_preds, targets, human_preds, ground_truth_functions = [], [], [], [], []
+        model_errors, per_trial_model_errors, model_preds, targets, human_preds, ground_truth_functions = [], [], [], [], [], []
         for participant in participants:
-            model_pred, model_error, target, human_pred, ground_truth_function = compute_mses_human_predictions_under_model(env=env, model_path=model_path, participant=participant, shuffle_trials=True,
+            model_pred, model_error, per_trial_model_error, target, human_pred, ground_truth_function = compute_mses_human_predictions_under_model(env=env, model_path=model_path, participant=participant, shuffle_trials=True,
                                                                                                              paired=args.paired, constraint=args.constraint, **task_features)
             model_preds.append(model_pred)
             model_errors.append(model_error)
+            per_trial_model_errors.append(per_trial_model_error)
             targets.append(target)
             human_preds.append(human_pred)
             ground_truth_functions.append(ground_truth_function)
-        return np.stack(model_preds), np.stack(model_errors), np.stack(targets), np.stack(human_preds), np.stack(ground_truth_functions)
+        return np.stack(model_preds), np.stack(model_errors), np.stack(per_trial_model_errors), np.stack(targets), np.stack(human_preds), np.stack(ground_truth_functions)
         
     else:
 
@@ -243,10 +245,10 @@ if __name__ == '__main__':
         
     
     if args.paradigm == 'functionlearning':
-        model_preds, model_errors, targets, human_preds, ground_truth_functions = sample_model(args)
+        model_preds, model_errors, per_trial_model_errors, targets, human_preds, ground_truth_functions = sample_model(args)
         print('saving')
         # save list of results
-        np.savez(save_path, model_preds=model_preds, model_errors=model_errors, targets=targets, 
+        np.savez(save_path, model_preds=model_preds, model_errors=model_errors, per_trial_model_errors=per_trial_model_errors, targets=targets, 
                  human_preds=human_preds, ground_truth_functions=ground_truth_functions)
     else:
         model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coefficients, expected_log_likelihood, l2_norms  = sample_model(args)
