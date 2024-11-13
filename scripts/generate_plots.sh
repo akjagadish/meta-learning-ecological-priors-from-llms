@@ -28,7 +28,7 @@
 # python make_plots.py
 
 
-cd ~/ermi/decisionmaking/
+cd ~/ermi/
 
 module purge
 module load anaconda/3/2023.03
@@ -36,4 +36,6 @@ pip install groupBMC==1.0
 pip3 install --user openai ipdb transformers tensorboard anthropic openml wordcloud mycolorpy Pillow
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-python make_plots.py
+python decisionmaking/make_plots.py
+# python categorisation/make_plots.py
+# python functionlearning/make_plots.py
