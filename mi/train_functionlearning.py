@@ -13,13 +13,13 @@ from evaluate import evaluate_regression
 from model_utils import annealed_lambda
 import schedulefree
 
-def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_init, annealing_fraction, synthetic, num_dims, max_steps, sample_to_match_max_steps, noise, shuffle, shuffle_features, print_every, save_every, num_hidden, num_layers, d_model, num_head, loss, save_dir, device, lr, regularize, optim, batch_size=64):
+def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_init, annealing_fraction, synthetic, num_dims, max_steps, sample_to_match_max_steps, dynamic_scaling, noise, shuffle, shuffle_features, print_every, save_every, num_hidden, num_layers, d_model, num_head, loss, save_dir, device, lr, regularize, optim, batch_size=64):
 
     writer = SummaryWriter('runs/' + save_dir)
     if synthetic:
-       env = SyntheticFunctionlearningTask(num_dims=num_dims, max_steps=max_steps, batch_size=batch_size, noise=noise, device=device).to(device)
+       env = SyntheticFunctionlearningTask(num_dims=num_dims, max_steps=max_steps,dynamic_scaling=dynamic_scaling, batch_size=batch_size, noise=noise, device=device).to(device)
     else:
-        env = FunctionlearningTask(data=env_name, num_dims=num_dims, max_steps=max_steps, sample_to_match_max_steps=sample_to_match_max_steps,
+        env = FunctionlearningTask(data=env_name, num_dims=num_dims, max_steps=max_steps, dynamic_scaling=dynamic_scaling, sample_to_match_max_steps=sample_to_match_max_steps,
                                    batch_size=batch_size, noise=noise, shuffle_trials=shuffle, shuffle_features=shuffle_features, device=device).to(device)
 
     # setup model
@@ -152,6 +152,8 @@ if __name__ == "__main__":
                         help='name of the model')
     parser.add_argument('--sample-to-match-max-steps', action='store_true',
                         default=False, help='sample to match max steps')
+    parser.add_argument('--dynamic-scaling', action='store_true',
+                        default=False, help='dynamic scaling')
     parser.add_argument('--restart-training', action='store_true',
                         default=False, help='restart training')
     parser.add_argument('--restart-episode-id', type=int,
@@ -195,6 +197,7 @@ if __name__ == "__main__":
         "batch_size": args.batch_size,
         "annealing_fraction": args.annealing_fraction,
         "regularize": args.regularize,
+        "dynamic_scaling": args.dynamic_scaling,
         }
     )
 
@@ -209,8 +212,9 @@ if __name__ == "__main__":
         save_dir = save_dir.replace('.pt', f'_reg{args.regularize}.pt') if args.ess >= 0 else save_dir
         save_dir = save_dir.replace('.pt', f'_essinit{str(args.ess_init)}_annealed.pt') if args.annealing_fraction > 0 else save_dir
         save_dir = save_dir.replace('.pt', f'_schedulefree.pt') if args.optimizer == 'schedulefree' else save_dir
+        save_dir = save_dir.replace('.pt', f'_dynamic_scaling.pt') if args.dynamic_scaling else save_dir
         wandb.run.name = save_dir[len(args.save_dir):]
         wandb.run.save()        
         
-        run(env_name, args.restart_training, args.restart_episode_id, args.num_episodes, args.ess, args.ess_init, args.annealing_fraction, args.synthetic, args.num_dims, args.max_steps, args.sample_to_match_max_steps,
+        run(env_name, args.restart_training, args.restart_episode_id, args.num_episodes, args.ess, args.ess_init, args.annealing_fraction, args.synthetic, args.num_dims, args.max_steps, args.sample_to_match_max_steps, args.dynamic_scaling,
             args.noise, args.shuffle, args.shuffle_features, args.print_every, args.save_every, args.num_hidden, args.num_layers, args.d_model, args.num_head, args.loss, save_dir, device, args.lr, args.regularize, args.optimizer, args.batch_size)
