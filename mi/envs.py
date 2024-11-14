@@ -64,7 +64,7 @@ class FunctionlearningTask(nn.Module):
 
     def sample_batch(self):
 
-        scale = torch.FloatTensor(1).uniform_(0.1, 0.5).item() if self.dynamic_scaling else scale
+        scale = torch.FloatTensor(1).uniform_(0.1, 0.5).item() if self.dynamic_scaling else self.scale
         
         data = self.data[self.data.task_id.isin(self.return_tasks())]
         data['input'] = data['input'].apply(
