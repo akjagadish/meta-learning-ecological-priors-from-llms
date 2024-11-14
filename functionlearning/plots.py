@@ -479,14 +479,17 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
     # Extract unique functions and calculate MSE for results_ermi
     functions = ['linear', 'exponential', 'quadratic']
     function_names = {'linear': 'Linear', 'exponential': 'Exponential', 'quadratic': 'Quadratic'}
-    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': []}
-    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': []}
+    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': [], 'Per_trial_MSE': []}
+    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': [], 'Per_trial_MSE': []}
     for function in functions:
         mse = results_ermi['model_errors'].squeeze()[(results_ermi['ground_truth_functions'] == function)].mean()
         input_data = results_ermi['human_preds'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, :-1]
         target_data = results_ermi['targets'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, :-1]
         extrapolation_input = results_ermi['human_preds'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, -1]
         extrapolation_target = results_ermi['model_preds'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, -1]
+        num_trials = results_ermi['per_trial_model_errors'].shape[-1]
+        ground_truth_functions_repeated = np.repeat(results_ermi['ground_truth_functions'][:, :, np.newaxis], num_trials, axis=2).reshape(-1, num_trials)
+        per_trial_mse = results_ermi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_ermi['Function'].append(function_names[function])
         error_dict_ermi['MSE'].append(mse)
         error_dict_ermi['Dataset'].append('ERMI')
@@ -494,12 +497,14 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
         error_dict_ermi['Target'].append(target_data)
         error_dict_ermi['Extrapolation_Input'].append(extrapolation_input)
         error_dict_ermi['Extrapolation_Target'].append(extrapolation_target)
+        error_dict_ermi['Per_trial_MSE'].append(per_trial_mse)
         
         mse = results_mi['model_errors'].squeeze()[(results_mi['ground_truth_functions'] == function)].mean()
         input_data = results_mi['human_preds'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, :-1]
         target_data = results_mi['targets'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, :-1]
         extrapolation_input = results_mi['human_preds'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, -1]
         extrapolation_target = results_mi['model_preds'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, -1]
+        per_trial_mse = results_mi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)
         error_dict_mi['Dataset'].append('MI')
@@ -507,6 +512,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
         error_dict_mi['Target'].append(target_data)
         error_dict_mi['Extrapolation_Input'].append(extrapolation_input)
         error_dict_mi['Extrapolation_Target'].append(extrapolation_target)
+        error_dict_mi['Per_trial_MSE'].append(per_trial_mse)
 
     # Combine the data into a single DataFrame
     df_ermi = pd.DataFrame(error_dict_ermi)
@@ -533,6 +539,23 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
             sns.despine()
             plt.show()
             plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_{function}_{dataset}.png', bbox_inches='tight')
+
+    # Plot the per-trial MSE
+    sns.set(style="whitegrid")
+    for dataset in df_combined['Dataset'].unique():
+        fig, ax = plt.subplots(figsize=FIGSIZE)
+        for function in df_combined['Function'].unique():
+            subset = df_combined[(df_combined['Function'] == function) & (df_combined['Dataset'] == dataset)]
+            per_trial_mse = np.array(subset['Per_trial_MSE'].values[0])
+            ax.plot(per_trial_mse.mean(axis=0), label=f'{function}', lw=2)
+        ax.set_xlabel('Trial', fontsize=FONTSIZE)
+        ax.set_ylabel('MSE', fontsize=FONTSIZE)
+        ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+        ax.legend(frameon=False, fontsize=FONTSIZE-2)
+        plt.grid(visible=False)
+        sns.despine()
+        plt.show()
+        plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_per_trial_mse_function_types_{dataset}.png', bbox_inches='tight')
     
     # Plot the combined data
     sns.set(style="whitegrid")
@@ -545,7 +568,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
     plt.grid(visible=False)
     plt.show()
-    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_error_extrapolation.png', bbox_inches='tight')
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_mse_function_types.png', bbox_inches='tight')
 
         
 def model_comparison_little2024(FIGSIZE=(5,5)):
