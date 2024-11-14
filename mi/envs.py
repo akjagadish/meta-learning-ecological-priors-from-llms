@@ -16,7 +16,7 @@ class FunctionlearningTask(nn.Module):
     Function learning
     """
 
-    def __init__(self, data, max_steps=20, sample_to_match_max_steps=False, num_dims=3, scale=0.5, batch_size=64, mode='train', split=[0.8, 0.1, 0.1], device='cpu', num_tasks=10000, noise=0., shuffle_trials=False, shuffle_features=True, normalize_inputs=True):
+    def __init__(self, data, max_steps=20, sample_to_match_max_steps=False, num_dims=3, scale=0.5, dynamic_scaling=False, batch_size=64, mode='train', split=[0.8, 0.1, 0.1], device='cpu', num_tasks=10000, noise=0., shuffle_trials=False, shuffle_features=True, normalize_inputs=True):
         """
         Initialise the environment
         Args:
@@ -40,6 +40,7 @@ class FunctionlearningTask(nn.Module):
         self.num_dims = num_dims
         self.mode = mode
         self.scale = scale
+        self.dynamic_scaling = dynamic_scaling
         self.split = (torch.tensor(
             [split[0], split[0]+split[1], split[0]+split[1]+split[2]]) * self.data.task_id.nunique()).int()
         self.noise = noise
@@ -63,6 +64,8 @@ class FunctionlearningTask(nn.Module):
 
     def sample_batch(self):
 
+        scale = torch.FloatTensor(1).uniform_(0.1, 0.5).item() if self.dynamic_scaling else scale
+        
         data = self.data[self.data.task_id.isin(self.return_tasks())]
         data['input'] = data['input'].apply(
             lambda x: list(map(float, x.strip('[]').split(','))))
@@ -88,10 +91,10 @@ class FunctionlearningTask(nn.Module):
             data = np.stack(data)
             return 2 * scale * (data - data.min())/(data.max() - data.min() + 1e-6) - scale
         
-        stacked_task_features = [torch.from_numpy(np.concatenate((stacked_normalized(task_input_features, self.scale) if self.normalize else np.stack(task_input_features), stacked_normalized(
-            task_targets, self.scale).reshape(-1, 1) if self.normalize else np.stack(task_targets).reshape(-1, 1)), axis=1)) for task_input_features, task_targets in zip(data.input.values, data.shifted_target.values)]
+        stacked_task_features = [torch.from_numpy(np.concatenate((stacked_normalized(task_input_features, scale) if self.normalize else np.stack(task_input_features), stacked_normalized(
+            task_targets, scale).reshape(-1, 1) if self.normalize else np.stack(task_targets).reshape(-1, 1)), axis=1)) for task_input_features, task_targets in zip(data.input.values, data.shifted_target.values)]
         stacked_targets = [torch.from_numpy(
-            stacked_normalized(task_targets, self.scale) if self.normalize else np.stack(task_targets)) for task_targets in data.target.values]
+            stacked_normalized(task_targets, scale) if self.normalize else np.stack(task_targets)) for task_targets in data.target.values]
         sequence_lengths = [len(task_input_features)
                             for task_input_features in data.input.values]
         packed_inputs = rnn_utils.pad_sequence(
@@ -109,7 +112,7 @@ class SyntheticFunctionlearningTask(nn.Module):
     Synthetic function learning based on Lucas et al. 2015 
     """
 
-    def __init__(self, max_steps=20, num_dims=1, scale=0.5, batch_size=64, mode='train',  device='cpu', noise=0., normalize_inputs=True):
+    def __init__(self, max_steps=20, num_dims=1, scale=0.5, dynamic_scaling=False, batch_size=64, mode='train',  device='cpu', noise=0., normalize_inputs=True):
         """
         Initialise the environment
         Args:
@@ -127,6 +130,7 @@ class SyntheticFunctionlearningTask(nn.Module):
         self.mode = mode
         self.batch_size = batch_size if mode == 'train' else 1000
         self.scale = scale
+        self.dynamic_scaling = dynamic_scaling
         self.noise = noise
         self.normalize = normalize_inputs
 
@@ -175,7 +179,7 @@ class SyntheticFunctionlearningTask(nn.Module):
         return y_batch, input_batch, kernel_choices
     
     def sample_batch(self):
-
+        scale = torch.FloatTensor(1).uniform_(0.1, 0.5).item() if self.dynamic_scaling else self.scale
         # data: input, target, shifted target
         targets, inputs, kernel_choices  = self.sample_batch_vectorized()
 
@@ -185,8 +189,8 @@ class SyntheticFunctionlearningTask(nn.Module):
             data_max = data.max(dim=1, keepdim=True).values
             return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
         
-        targets = stacked_normalized(targets, self.scale) if self.normalize else targets
-        inputs = stacked_normalized(inputs, self.scale) if self.normalize else inputs
+        targets = stacked_normalized(targets, scale) if self.normalize else targets
+        inputs = stacked_normalized(inputs, scale) if self.normalize else inputs
         shifted_targets = torch.concatenate((torch.zeros((self.batch_size, 1), device=self.device), targets[:, :-1]), dim=1)
         
         # concatenate inputs and targets
@@ -801,7 +805,7 @@ class DeLosh1997(nn.Module):
     
         self.device = torch.device(device)
         self.max_steps = max_steps
-        self.train_steps = 20
+        self.train_steps = 24
         self.num_choices = 1
         self.num_functions = 3
         self.num_dims = num_dims
