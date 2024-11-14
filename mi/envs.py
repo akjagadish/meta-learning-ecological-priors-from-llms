@@ -783,3 +783,80 @@ class Little2022(nn.Module):
      
         return inputs_list, targets_list, human_targets_list, true_data_list  
 
+class DeLosh1997(nn.Module):
+    """
+    Extrapolation during function learning from DeLosh et al. 1997
+    """
+
+    def __init__(self, max_steps=21, num_dims=1, scale=0.5, mode='train',  device='cpu', noise=0., normalize_inputs=True):
+        """
+        Initialise the environment
+        Args:
+            data: path to csv file containing data
+            max_steps: number of steps in each episode
+            num_dims: number of dimensions in each input
+            batch_size: number of tasks in each batch
+        """
+        super(DeLosh1997, self).__init__()
+    
+        self.device = torch.device(device)
+        self.max_steps = max_steps
+        self.train_steps = 20
+        self.num_choices = 1
+        self.num_functions = 3
+        self.num_dims = num_dims
+        self.mode = mode
+        self.scale = scale
+        self.noise = noise
+        self.normalize = normalize_inputs
+
+    
+    def linear(self, x):
+        return 2.2 * x + 30
+
+    def exponential(self, x):
+        return 200 * (1 - torch.exp(-x/25))
+
+    def quadratic(self, x):
+        return 210 - (x - 50)**2/12
+
+    def sample_batch_vectorized(self):
+        
+        x_train = torch.tensor([30.0, 31.5, 33.0, 34.5,36.5,38.5,41.0,43.5,46.0,48.5,51.5,54.0,56.5,59.0, 61.5, 63.5, 65.5,67.0,68.5,70.0], device=self.device)[torch.randperm(self.train_steps)]
+        x_interpolate = torch.tensor([32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5], device=self.device)
+        x_low_region = torch.tensor([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0,19.0,21.0, 23.0,25.0, 27.0,29.0], device=self.device)
+        x_high_region = torch.tensor([71.0,73.0,75.0,77.0,79.0,81.0,83.0,85.0,87.0,89.0,91.0,93.0,95.0,97.0,99.0], device=self.device)
+        x_test = torch.cat((x_interpolate, x_low_region, x_high_region), dim=0)
+        self.batch_size = len(x_test) * self.num_functions
+        x = torch.cat((x_train.repeat(len(x_test), 1), x_test.unsqueeze(1)), dim=1)
+        y_linear = self.linear(x)
+        y_exponential = self.exponential(x)
+        y_quadratic = self.quadratic(x)
+        y_batch = torch.cat((y_linear, y_exponential, y_quadratic), dim=0)
+        x_batch = x.unsqueeze(2).repeat(self.num_functions, 1, 1)
+        kernel_choices = ['linear'] * len(x_test) +  ['exponential']  * len(x_test) +  ['quadratic']  * len(x_test)
+
+        return y_batch, x_batch, kernel_choices
+    
+    def sample_batch(self):
+
+        # data: input, target, shifted target
+        targets, inputs, kernel_choices  = self.sample_batch_vectorized()
+
+        # normalize the data
+        def stacked_normalized(data, scale, set_min=None, set_max=None):
+            data_min =  data.min(dim=1, keepdim=True).values if set_min is None else set_min
+            data_max =  data.max(dim=1, keepdim=True).values if set_max is None else set_max
+            return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
+        
+        targets = stacked_normalized(targets, self.scale, 0, 250) if self.normalize else targets
+        inputs = stacked_normalized(inputs, self.scale, 0, 100) if self.normalize else inputs
+        shifted_targets = torch.concatenate((torch.zeros((self.batch_size, 1), device=self.device), targets[:, :-1]), dim=1)
+        # concatenate inputs and targets
+        stacked_task_features = torch.cat((inputs, shifted_targets.unsqueeze(2)), dim=2)
+        sequence_lengths = [len(task_input_features)
+                            for task_input_features in inputs]
+        packed_inputs = rnn_utils.pad_sequence(
+            stacked_task_features, batch_first=True)
+        
+        return packed_inputs.to(self.device), sequence_lengths, targets, inputs, kernel_choices

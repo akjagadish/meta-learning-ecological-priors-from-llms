@@ -1,4 +1,4 @@
-from plots import plot_functionlearning_data_statistics, proportion_function_types, model_errors_function_types, model_comparison_little2024
+from plots import plot_functionlearning_data_statistics, proportion_function_types, model_errors_function_types, model_comparison_little2024, model_extrapolation_delosh1997
 
 # IndexError: too many indices for array: array is 1-dimensional, but 2 were indexed (NOT WORKING)
 # plot_functionlearning_data_statistics(0)
@@ -14,5 +14,8 @@ from plots import plot_functionlearning_data_statistics, proportion_function_typ
 # model errors for different function types
 # model_errors_function_types()
 
+# model extrapolation
+model_extrapolation_delosh1997()
+
 # mode comparison
-model_comparison_little2024()
+# model_comparison_little2024()

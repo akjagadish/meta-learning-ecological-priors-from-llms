@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from envs import Binz2022, Badham2017, Devraj2022, Little2022, SyntheticFunctionlearningTask
+from envs import Binz2022, Badham2017, Devraj2022, Little2022, SyntheticFunctionlearningTask, DeLosh1997
 import argparse
 from tqdm import tqdm
 from scipy.optimize import differential_evolution, minimize
@@ -36,7 +36,7 @@ def compute_loglikelihood_human_choices_under_model(env=None, model_path=None, p
     
     # load model weights
     state_dict = torch.load(
-        model_path, map_location=device)[1]
+        model_path, map_location=device, weights_only=False)[1]
     model.load_state_dict(state_dict)
     model.to(device)
 
@@ -146,27 +146,31 @@ def sample_model(args):
     model_path = f"{SYS_PATH}/{args.paradigm}/trained_models/{args.model_name}.pt"
     if args.task_name == 'badham2017':
         env = Badham2017()
-        task_features = {'model_max_steps': 96}
+        task_features = {'model_max_steps': 96, 'human_data': True}
     elif args.task_name == 'devraj2022':
         env = Devraj2022()
-        task_features = {'model_max_steps': 616}
+        task_features = {'model_max_steps': 616, 'human_data': True}
     elif args.task_name == 'binz2022':
         env = Binz2022(experiment_id=args.exp_id)
-        task_features = {'model_max_steps': 10}
+        task_features = {'model_max_steps': 10, 'human_data': True}
     elif args.task_name == 'little2022':
         env = Little2022()
-        task_features = {'model_max_steps': 25}
+        task_features = {'model_max_steps': 25, 'human_data': True}
     elif args.task_name == 'syntheticfunctionlearning':
         env = SyntheticFunctionlearningTask(num_dims=1, mode='test', max_steps=25)
         env.num_samples = 10
         env.batch_size = 100
         task_features = {'model_max_steps': 25, 'synthetic': True}
+    elif args.task_name == 'delosh1997':
+        env = DeLosh1997()
+        task_features = {'model_max_steps': 25, 'synthetic': True}
+        env.num_samples = 2
     else:
         raise NotImplementedError
    
-    participants = env.data.participant.unique() if task_features.get('synthetic') is None else range(env.num_samples)
+    participants = env.data.participant.unique() if task_features.get('human_data') else range(env.num_samples)
     
-    if args.task_name in ['little2022', 'syntheticfunctionlearning']:
+    if args.task_name in ['little2022', 'syntheticfunctionlearning', 'delosh1997']:
 
         model_errors, per_trial_model_errors, model_preds, targets, human_preds, ground_truth_functions = [], [], [], [], [], []
         for participant in participants:

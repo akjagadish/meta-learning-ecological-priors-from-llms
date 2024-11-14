@@ -471,9 +471,83 @@ def model_errors_function_types(FIGSIZE=(12, 6)):
         plt.show()
         plt.savefig(f'{SYS_PATH}/figures/functionlearning_per_trial_mse_function_types_{dataset}.png', bbox_inches='tight')
 
-def model_extrapolation_deLosh1997():
-    pass
+def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
+    # load model
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=delosh1997_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=delosh1997_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
 
+    # Extract unique functions and calculate MSE for results_ermi
+    functions = ['linear', 'exponential', 'quadratic']
+    function_names = {'linear': 'Linear', 'exponential': 'Exponential', 'quadratic': 'Quadratic'}
+    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': []}
+    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': []}
+    for function in functions:
+        mse = results_ermi['model_errors'].squeeze()[(results_ermi['ground_truth_functions'] == function)].mean()
+        input_data = results_ermi['human_preds'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, :-1]
+        target_data = results_ermi['targets'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, :-1]
+        extrapolation_input = results_ermi['human_preds'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, -1]
+        extrapolation_target = results_ermi['model_preds'].squeeze()[(results_ermi['ground_truth_functions'] == function)][:, -1]
+        error_dict_ermi['Function'].append(function_names[function])
+        error_dict_ermi['MSE'].append(mse)
+        error_dict_ermi['Dataset'].append('ERMI')
+        error_dict_ermi['Input'].append(input_data)
+        error_dict_ermi['Target'].append(target_data)
+        error_dict_ermi['Extrapolation_Input'].append(extrapolation_input)
+        error_dict_ermi['Extrapolation_Target'].append(extrapolation_target)
+        
+        mse = results_mi['model_errors'].squeeze()[(results_mi['ground_truth_functions'] == function)].mean()
+        input_data = results_mi['human_preds'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, :-1]
+        target_data = results_mi['targets'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, :-1]
+        extrapolation_input = results_mi['human_preds'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, -1]
+        extrapolation_target = results_mi['model_preds'].squeeze()[(results_mi['ground_truth_functions'] == function)][:, -1]
+        error_dict_mi['Function'].append(function_names[function])
+        error_dict_mi['MSE'].append(mse)
+        error_dict_mi['Dataset'].append('MI')
+        error_dict_mi['Input'].append(input_data)
+        error_dict_mi['Target'].append(target_data)
+        error_dict_mi['Extrapolation_Input'].append(extrapolation_input)
+        error_dict_mi['Extrapolation_Target'].append(extrapolation_target)
+
+    # Combine the data into a single DataFrame
+    df_ermi = pd.DataFrame(error_dict_ermi)
+    df_mi = pd.DataFrame(error_dict_mi)
+    df_combined = pd.concat([df_ermi, df_mi])
+
+    # scatter plot of Input vs Target and Extrapolation Input vs Extrapolation Target for each function
+    sns.set(style="whitegrid")
+    for dataset in df_combined['Dataset'].unique():
+        for function in df_combined['Function'].unique():
+            subset = df_combined[(df_combined['Function'] == function) & (df_combined['Dataset'] == dataset)]
+            fig, axs = plt.subplots(1, 1, figsize=(6, 6))
+            for i, row in subset.iterrows():
+                axs.scatter(row['Extrapolation_Input'], row['Extrapolation_Target'], label=f'Test', alpha=0.5, color='red')
+                axs.scatter(row['Input'], row['Target'], label='Training', alpha=0.5, color='black')
+            axs.set_xlabel('Input', fontsize=FONTSIZE)
+            axs.set_ylabel('Target', fontsize=FONTSIZE)
+            axs.legend(frameon=False, fontsize=FONTSIZE-2)
+            axs.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+            # add vertical dotted line as a separator at x = -0.5 and x = 0.5
+            axs.axvline(x=-0.25, color='black', linestyle='--', alpha=0.5)
+            axs.axvline(x=0.25, color='black', linestyle='--', alpha=0.5)
+            plt.grid(visible=False)
+            sns.despine()
+            plt.show()
+            plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_{function}_{dataset}.png', bbox_inches='tight')
+    
+    # Plot the combined data
+    sns.set(style="whitegrid")
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, errorbar="sd", ax=ax)
+    sns.despine()
+    ax.legend(frameon=False, fontsize=FONTSIZE-2)
+    ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
+    ax.set_xlabel('Function', fontsize=FONTSIZE)
+    ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+    plt.grid(visible=False)
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_error_extrapolation.png', bbox_inches='tight')
+
+        
 def model_comparison_little2024(FIGSIZE=(5,5)):
     sns.set(style="whitegrid")
     task_name = 'little2022'
