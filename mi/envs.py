@@ -826,7 +826,10 @@ class DeLosh1997(nn.Module):
 
     def sample_batch_vectorized(self):
         
-        x_train = torch.tensor([30.0, 31.5, 33.0, 34.5,36.5,38.5,41.0,43.5,46.0,48.5,51.5,54.0,56.5,59.0, 61.5, 63.5, 65.5,67.0,68.5,70.0], device=self.device)[torch.randperm(self.train_steps)]
+        x_train = torch.tensor([30.0, 31.5, 33.0, 34.5,36.5,38.5,41.0,43.5,46.0,48.5,51.5,54.0,56.5,59.0, 61.5, 63.5, 65.5,67.0,68.5, 70.0], device=self.device)#[torch.randperm(self.train_steps)]
+        additional_samples = torch.randint(0, len(x_train), (self.train_steps - len(x_train),), device=self.device)
+        sample_indices = torch.cat((torch.arange(len(x_train), device=self.device), additional_samples))
+        x_train = x_train[sample_indices].sort().values
         x_interpolate = torch.tensor([32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5], device=self.device)
         x_low_region = torch.tensor([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0,19.0,21.0, 23.0,25.0, 27.0,29.0], device=self.device)
         x_high_region = torch.tensor([71.0,73.0,75.0,77.0,79.0,81.0,83.0,85.0,87.0,89.0,91.0,93.0,95.0,97.0,99.0], device=self.device)
