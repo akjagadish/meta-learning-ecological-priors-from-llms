@@ -120,6 +120,7 @@ def compute_mses_human_predictions_under_model(env=None, model_path=None, partic
             # compute metrics
             model_error = compute_mse(model_preds, targets.unsqueeze(2))
             per_trial_model_error = compute_mse(model_preds.squeeze(), targets, per_trial=True)
+            
             return model_preds, model_error, per_trial_model_error, targets, inputs, kernel_choices
         
         else:
@@ -162,8 +163,8 @@ def sample_model(args):
         env.batch_size = 100
         task_features = {'model_max_steps': 25, 'synthetic': True}
     elif args.task_name == 'delosh1997':
-        env = DeLosh1997()
-        task_features = {'model_max_steps': 25, 'synthetic': True}
+        env = DeLosh1997(max_steps=args.model_max_steps)
+        task_features = {'model_max_steps': args.model_max_steps, 'synthetic': True}
         env.num_samples = 2
     else:
         raise NotImplementedError
@@ -231,6 +232,8 @@ if __name__ == '__main__':
                         default=False, help='use filename for saving')
     parser.add_argument('--use-base-model-name', action='store_true',
                         default=False, help='use base model name for saving')
+    parser.add_argument('--model_max_steps', type=int, default=None,
+                        help='maximum number of steps for the model')
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -246,6 +249,7 @@ if __name__ == '__main__':
         num_hidden, num_layers, d_model, num_head, loss_fn, _, source, condition, _ = parse_model_path(args.model_name, {}, return_data_info=True)
         save_path = f"{args.paradigm}/data/model_simulation/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_loss={loss_fn}_paired={args.paired}_policy={args.policy}.npz"
         save_path = save_path.replace('.npz', f"_ess={str(round(float(args.ess), 4))}.npz") if args.ess is not None else save_path
+        save_path = save_path.replace('.npz', f"_max_steps={str(args.model_max_steps)}.npz") if args.model_max_steps is not None else save_path
         
     
     if args.paradigm == 'functionlearning':

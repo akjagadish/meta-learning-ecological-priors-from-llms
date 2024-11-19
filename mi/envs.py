@@ -792,7 +792,7 @@ class DeLosh1997(nn.Module):
     Extrapolation during function learning from DeLosh et al. 1997
     """
 
-    def __init__(self, max_steps=21, num_dims=1, scale=0.5, mode='train',  device='cpu', noise=0., normalize_inputs=True):
+    def __init__(self, max_steps=25, num_dims=1, scale=0.5, mode='train',  device='cpu', noise=0., normalize_inputs=True):
         """
         Initialise the environment
         Args:
@@ -804,8 +804,7 @@ class DeLosh1997(nn.Module):
         super(DeLosh1997, self).__init__()
     
         self.device = torch.device(device)
-        self.max_steps = max_steps
-        self.train_steps = 24
+        self.train_steps = max_steps-1
         self.num_choices = 1
         self.num_functions = 3
         self.num_dims = num_dims
@@ -813,8 +812,6 @@ class DeLosh1997(nn.Module):
         self.scale = scale
         self.noise = noise
         self.normalize = normalize_inputs
-
-    
     def linear(self, x):
         return 2.2 * x + 30
 
@@ -826,14 +823,19 @@ class DeLosh1997(nn.Module):
 
     def sample_batch_vectorized(self):
         
-        x_train = torch.tensor([30.0, 31.5, 33.0, 34.5,36.5,38.5,41.0,43.5,46.0,48.5,51.5,54.0,56.5,59.0, 61.5, 63.5, 65.5,67.0,68.5, 70.0], device=self.device)#[torch.randperm(self.train_steps)]
+        if self.train_steps == 24:
+            x_train = torch.tensor([30.0, 31.5, 33.0, 34.5, 36.5, 38.5, 41.0, 43.5, 46.0, 48.5, 51.5, 54.0, 56.5, 59.0, 61.5, 63.5, 65.5, 67.0, 68.5, 70.0], device=self.device)#[torch.randperm(self.train_steps)]
+        elif self.train_steps == 64:
+            x_train = torch.tensor([30.0, 30.5, 31.0, 32.0, 33.0, 33.5, 34.5, 35.5, 36.5, 37.0, 38.0, 38.5, 39.5, 40.5, 41.5,42.0, 43.0, 43.5, 44.5, 45.5, 46.5, 47.0,
+                                    48.0, 48.5, 49.0, 51.0, 51.5, 52.0, 53.0, 53.5, 54.5, 55.5, 56.5, 57.0, 58.0, 58.5, 59.5, 60.5, 61.5, 62.0, 63.0, 63.5, 64.5, 65.5, 
+                                    66.5, 67.0, 68.0, 69.0, 69.5, 70.0], device=self.device)#[torch.randperm(self.train_steps)]
         additional_samples = torch.randint(0, len(x_train), (self.train_steps - len(x_train),), device=self.device)
         sample_indices = torch.cat((torch.arange(len(x_train), device=self.device), additional_samples))
-        x_train = x_train[sample_indices].sort().values
+        x_train = x_train[sample_indices]#.sort().values
         x_interpolate = torch.tensor([32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5], device=self.device)
         x_low_region = torch.tensor([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0,19.0,21.0, 23.0,25.0, 27.0,29.0], device=self.device)
         x_high_region = torch.tensor([71.0,73.0,75.0,77.0,79.0,81.0,83.0,85.0,87.0,89.0,91.0,93.0,95.0,97.0,99.0], device=self.device)
-        x_test = torch.cat((x_interpolate, x_low_region, x_high_region), dim=0)
+        x_test = torch.cat((x_interpolate, x_low_region, x_high_region, x_train), dim=0)
         self.batch_size = len(x_test) * self.num_functions
         x = torch.cat((x_train.repeat(len(x_test), 1), x_test.unsqueeze(1)), dim=1)
         y_linear = self.linear(x)
