@@ -463,7 +463,65 @@ def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', c
         plt.show()
         plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_vs_trials_{source}_{condition}_exp{experiment_id}_ess{str(ess)}.png')
 
-def model_comparison_binz2022(experiment_id, pseudo=False, FIGSIZE = (10,5)):
+def model_ginis_binz2022(pseudo=False, FIGSIZE=(8, 5)):
+    # experiment_id=1
+    # dim = 'dim2' if experiment_id == 3 else 'dim4'
+    # conditions = ['ranked', 'unknown'] if experiment_id ==1 else ['direction', 'unknown'] if experiment_id == 2 else ['unknown']
+    dim = 'dim4'
+    sources = ['claude', 'synthetic']
+    conditions = ['ranked', 'direction', 'unknown']
+    esses = [0.0]
+    ginis = {}
+    for source in sources:
+        for condition in conditions:
+            index = source + '_' + condition
+            for ess in esses:
+                # ginis[source][condition][ess] = {}
+                assert ess == 0.0, 'ess must be 0.0'
+                condition = 'pseudo' + condition if pseudo and source=='claude' and condition != 'unknown' else condition                         
+                if source == 'claude':
+                    model_coeffs = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_essinit0.0_annealed_schedulefree_binz2022.npz')['model_coefficients']
+                elif source == 'synthetic':
+                    model_coeffs = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_{dim}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess0.0_std0.1_run=0_{"ranking" if condition == "ranked" else "direction" if condition == "direction" else "unknown"}_essinit0.0_annealed_schedulefree_binz2022.npz')['model_coefficients']
+                gini_over_tasks = []
+                for task in range(model_coeffs.shape[1]):
+                    gini_over_tasks.append(gini_compute(np.abs(model_coeffs[:, task, :].mean((0, 1)))))
+                #ginis[source][condition][ess] = gini_over_tasks
+                ginis[index] = np.array(gini_over_tasks)
+                                        
+    # make a swarm plot of gini coefficients for each condition and source with points being different tasks
+    gini_df = pd.DataFrame.from_dict(ginis)
+
+    # swarm plot with bar plot for mean gini coefficients for each column
+    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    sns.swarmplot(data=gini_df, ax=ax, color='black', alpha=0.5)
+    sns.barplot(data=gini_df, ax=ax)
+    # color first and third bar with darker shade and second and fourth bar with lighter shade
+    for idx, bar in enumerate(ax.patches):
+        if idx == 0 or idx == 3:
+            bar.set_facecolor('#173b4f')
+        if idx == 2 or idx == 5:
+            bar.set_facecolor('#5d7684')
+        elif idx == 1 or idx == 4:
+            bar.set_facecolor('#8b9da7')
+    # Create custom legend handles
+    import matplotlib.patches as mpatches
+    dark_patch = mpatches.Patch(color='#173b4f', label='Direction')
+    light_patch = mpatches.Patch(color='#8b9da7', label='Ranking')
+    middle_patch = mpatches.Patch(color='#5d7684', label='Unknown')
+    # Add legend to the plot
+    ax.legend(handles=[dark_patch, light_patch, middle_patch], fontsize=FONTSIZE-2, frameon=False)
+    # Set custom x-ticks and labels
+    ax.set_xticks([1.0, 3.0])
+    ax.set_xticklabels(['ERMI', 'MI'], fontsize=FONTSIZE-2)
+    plt.yticks(fontsize=FONTSIZE-2)
+    plt.ylabel('Gini Coefficient', fontsize=FONTSIZE)
+    sns.despine()
+    plt.show()
+    plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_coefficients_{dim}_pseudo={pseudo}.png')
+
+    
+def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE = (10,5)):
     
     data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
     num_participants = data.participant.nunique()
@@ -504,16 +562,25 @@ def model_comparison_binz2022(experiment_id, pseudo=False, FIGSIZE = (10,5)):
         mi_condition_bic = (2*results_mi_condition['nlls']+ 1*np.log(num_trials)).sum() 
         abbr = 'R' if 'rank' in condition else 'D'
 
-        # collect bics and model names
-        bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic, bermi_condition_bic, bmi_condition_bic, ermi_condition_bic, mi_condition_bic]
-        models = ['BERMI', 'BMI', 'ERMI', 'MI', f'BERMI-{abbr}', f'BMI-{abbr}', f'ERMI-{abbr}', f'MI-{abbr}']
+        # # collect bics and model names
+        if bermi:
+            bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic, bermi_condition_bic, bmi_condition_bic, ermi_condition_bic, mi_condition_bic]
+            models = ['BERMI', 'BMI', 'ERMI', 'MI', f'BERMI-{abbr}', f'BMI-{abbr}', f'ERMI-{abbr}', f'MI-{abbr}']
+        else:
+            # collect bics and model names
+            bics = [bmi_condition_bic, ermi_condition_bic, mi_condition_bic]
+            models = [f'BMI', f'ERMI', f'MI']
 
     else:   
-
-        # collect bics and model names
-        bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic]#, rnn_mi_bic, rnn_bmi_bic, random_bic]
-        models = ['BERMI', 'BMI', 'ERMI', 'MI']#,  'RNN_MI', 'RNN_BMI', 'random']
-
+        
+        if bermi:
+            # collect bics and model names
+            bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic]#, rnn_mi_bic, rnn_bmi_bic, random_bic]
+            models = ['BERMI', 'BMI', 'ERMI', 'MI']#,  'RNN_MI', 'RNN_BMI', 'random']
+        else:
+            # collect bics and model names
+            bics = [bmi_bic, ermi_bic, mi_bic]
+            models = ['BMI', 'ERMI', 'MI']
 
     colors = ['#173b4f', '#8b9da7', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(bics)]
     # compare mean BICS across models in a bar plot
@@ -524,7 +591,8 @@ def model_comparison_binz2022(experiment_id, pseudo=False, FIGSIZE = (10,5)):
     ax.set_ylabel('BIC', fontsize=FONTSIZE)
     ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
     ax.set_xticklabels(models, fontsize=FONTSIZE-6)  # Assign category names to x-tick labels
-    ax.set_title(f'experiment {experiment_id}', fontsize=FONTSIZE)
+    # ax.set_title(f'experiment {experiment_id}', fontsize=FONTSIZE)
+    ax.set_title(f'{"Ranking" if experiment_id == 1 else "Direction" if experiment_id == 2 else "Unknown (Dim=2)" if experiment_id == 3 else "Unknown (Dim=4)"}', fontsize=FONTSIZE)
     ax.axhline(y=random_bic, color='red', linestyle='dotted', lw=3)
     plt.yticks(fontsize=FONTSIZE-2)
     plt.ylim(min(bics)-100, random_bic+100)

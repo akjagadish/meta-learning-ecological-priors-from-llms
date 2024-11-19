@@ -102,7 +102,7 @@ def save_real_data_lichtenberg2017(k=2, method='best', num_points=650):
             print('not valid data')
 
 
-def induce_pseudo_condition_llm_generated_data(condition='ranked'):
+def induce_pseudo_condition_llm_generated_data(condition='ranked', regress_all=False):
 
     # load data
     env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks7284_run0_procid1_pversionunknown'
@@ -116,17 +116,24 @@ def induce_pseudo_condition_llm_generated_data(condition='ranked'):
             y = df_task['target'].to_numpy()
             X = df_task["input"].to_numpy()
             X = np.stack(X)
-            # X = (X - X.min(axis=0))/(X.max(axis=0) - X.min(axis=0) + 1e-6)
-            # y = (y - y.min(axis=0))/(y.max(axis=0) - y.min(axis=0) + 1e-6)
             X = (X - X.mean(axis=0))/(X.std(axis=0) + 1e-6)
             y = (y - y.mean(axis=0))/(y.std(axis=0) + 1e-6)
 
             X_linear = PolynomialFeatures(1, include_bias=True).fit_transform(X)
 
-            # linear regression from X_linear to y
-            linear_regresion = sm.OLS(y, X_linear).fit()
-            order = np.argsort(np.abs(linear_regresion.params[1:]))[::-1]
-            sign = np.sign(linear_regresion.params[1:])
+            if regress_all:
+                # linear regression from X_linear to y
+                linear_regresion = sm.OLS(y, X_linear).fit()
+                order = np.argsort(np.abs(linear_regresion.params[1:]))[::-1]
+                sign = np.sign(linear_regresion.params[1:])
+            else:
+                per_feature_params = np.zeros((X.shape[1]))
+                for i in range(X.shape[1]):
+                    per_feature_params[i] = sm.OLS(
+                        y, X_linear[:, [0, i+1]]).fit().params[1]
+                order = np.argsort(np.abs(per_feature_params))[::-1]
+                sign = np.sign(per_feature_params)
+            
             if condition == 'ranked':# shuffle the sign of the features so that there is structure
                 sign = np.random.choice([-1, 1], len(sign)) # - sign if np.random.rand() > 0.95 else
             elif condition == 'direction': # shuffle the order of the features so that there is no structure
