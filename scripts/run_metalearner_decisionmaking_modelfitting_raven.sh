@@ -20,10 +20,10 @@ pip3 install --user ipdb torch transformers tensorboard ipdb tqdm schedulefree
 ###  binz2022
 
 # best models
-python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 1 --find-best-model
+# python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 1 --find-best-model
 python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 2 --find-best-model
-python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 3 --find-best-model
-python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 4 --find-best-model
+# python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 3 --find-best-model
+# python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 4 --find-best-model
 
 ## experiment 1
 # python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 1 --optimizer grid_search --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --paired --method bounded --use-base-model-name --model-name env=claude_dim4_ranked_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess0.0_std0.1_run=0_essinit0.0_annealed_schedulefree
@@ -37,6 +37,7 @@ python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 
 # python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 2 --optimizer grid_search --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --paired --method bounded --use-base-model-name --model-name env=synthetic_dim4_unknown_dim4_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess0.0_std0.1_run=0_unknown_essinit0.0_annealed_schedulefree
 # python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 2 --optimizer grid_search --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --paired --method bounded --use-base-model-name --model-name env=claude_dim4_unknown_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess0.0_std0.1_run=0_essinit0.0_annealed_schedulefree
 # python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 2 --optimizer grid_search --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --paired --method bounded --use-base-model-name --model-name env=claude_dim4_pseudodirection_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess0.0_std0.1_run=0_essinit0.0_annealed_schedulefree
+# python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 2 --optimizer grid_search --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --paired --method bounded --use-base-model-name --model-name env=claude_dim4_pseudodirection2_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess0.0_std0.1_run=0_essinit0.0_annealed_schedulefree
 
 ## experiment 3
 # python mi/fit_humans.py --paradigm decisionmaking --task-name binz2022 --exp-id 3 --optimizer grid_search --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --paired --method bounded --use-base-model-name --model-name env=claude_dim2_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess1.5_std0.1_run=1_essinit0.001_annealed_schedulefree
