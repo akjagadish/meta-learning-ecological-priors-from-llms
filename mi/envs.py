@@ -869,3 +869,105 @@ class DeLosh1997(nn.Module):
             stacked_task_features, batch_first=True)
         
         return packed_inputs.to(self.device), sequence_lengths, targets, inputs, kernel_choices
+
+class EvaluateFunctionLearning(nn.Module):
+    """
+    Generate function learning tasks for evaluation of interpolation
+    """
+
+    def __init__(self, max_steps=20, num_dims=1, scale=0.5, dynamic_scaling=False, batch_size=1000, mode='test',  device='cpu', noise=0., normalize_inputs=True):
+        """
+        Initialise the environment
+        Args:
+            data: path to csv file containing data
+            max_steps: number of steps in each episode
+            num_dims: number of dimensions in each input
+            batch_size: number of tasks in each batch
+        """
+        super(EvaluateFunctionLearning, self).__init__()
+    
+        self.device = torch.device(device)
+        self.max_steps = max_steps
+        self.num_choices = 1
+        self.num_dims = num_dims
+        self.mode = mode
+        self.batch_size = batch_size
+        self.scale = scale
+        self.dynamic_scaling = dynamic_scaling
+        self.noise = noise
+        self.normalize = normalize_inputs
+
+    def sample_parameters(self):
+        return torch.distributions.Uniform(-1., 1.).sample((self.batch_size,)).to(self.device)
+        #torch.distributions.Gamma(1.001, 1.).sample((self.batch_size,)).to(self.device)
+    
+    def positive_linear(self, x, weight, intercept):
+        return weight[:, None] * x + intercept[:, None]
+
+    def negative_linear(self, x, weight, intercept):
+        return -np.abs(weight[:, None]) * x + intercept[:, None]
+
+    def quadratic(self, x, weight, intercept):
+        return weight[:, None] * x**2 + intercept[:, None]
+
+    def radial_basis(self, x, height, distance):
+        return height[:, None] * torch.exp(-distance[:, None] * x**2)
+    
+    def sinusoidal(self, x, weight, intercept, phase, frequency):
+        return weight[:, None] * torch.sin(x*frequency[:, None]*2*np.pi - phase[:, None]) + intercept[:, None]
+
+    def sample_batch_vectorized(self):
+        
+        x = torch.linspace(-1, 1, self.max_steps, device=self.device)[torch.randperm(self.max_steps)]
+        prior_probs = [1, 1, 1, 1, 1]
+        kernel_types = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis', 'sinusoidal']
+        kernel_choices = np.random.choice(kernel_types, size=self.batch_size, p=np.array(prior_probs) / sum(prior_probs))
+        weights = self.sample_parameters().to(self.device)
+        intercepts = self.sample_parameters().to(self.device)
+        heights = self.sample_parameters().to(self.device)
+        distances = self.sample_parameters().to(self.device)
+        phases = self.sample_parameters().to(self.device)
+        frequencies = self.sample_parameters().to(self.device)
+
+        y_batch = torch.zeros((self.batch_size, self.max_steps), device=self.device)
+
+        positive_linear_mask = kernel_choices == 'positive_linear'
+        negative_linear_mask = kernel_choices == 'negative_linear'
+        quadratic_mask = kernel_choices == 'quadratic'
+        radial_basis_mask = kernel_choices == 'radial_basis'
+        sinusoidal_mask = kernel_choices == 'sinusoidal'
+        
+        y_batch[positive_linear_mask] = self.positive_linear(x, np.abs(weights[positive_linear_mask]), intercepts[positive_linear_mask]).to(self.device)
+        y_batch[negative_linear_mask] = self.negative_linear(x, np.abs(weights[negative_linear_mask]), intercepts[negative_linear_mask]).to(self.device)
+        y_batch[quadratic_mask] = self.quadratic(x, weights[quadratic_mask], intercepts[quadratic_mask]).to(self.device)
+        y_batch[radial_basis_mask] = self.radial_basis(x, heights[radial_basis_mask], distances[radial_basis_mask]).to(self.device)
+        y_batch[sinusoidal_mask] = self.sinusoidal(x, weights[sinusoidal_mask], intercepts[sinusoidal_mask], phases[sinusoidal_mask], np.abs(frequencies[sinusoidal_mask])).to(self.device)
+
+        y_batch += self.noise * torch.randn(self.batch_size, self.max_steps).to(self.device)
+        input_batch =  x.tile((self.batch_size,)).reshape(self.batch_size, self.max_steps)
+
+        return y_batch, input_batch, kernel_choices
+    
+    def sample_batch(self):
+
+        scale = torch.FloatTensor(1).uniform_(0.1, 0.5).item() if self.dynamic_scaling else self.scale
+        targets, inputs, kernel_choices  = self.sample_batch_vectorized()
+
+        # normalize the data
+        def stacked_normalized(data, scale):
+            data_min = data.min(dim=1, keepdim=True).values
+            data_max = data.max(dim=1, keepdim=True).values
+            return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
+        
+        targets = stacked_normalized(targets, scale) if self.normalize else targets
+        inputs = stacked_normalized(inputs, scale) if self.normalize else inputs
+        shifted_targets = torch.concatenate((torch.zeros((self.batch_size, 1), device=self.device), targets[:, :-1]), dim=1)
+        
+        # concatenate inputs and targets
+        stacked_task_features = torch.cat((inputs.unsqueeze(2), shifted_targets.unsqueeze(2)), dim=2)
+        sequence_lengths = [len(task_input_features)
+                            for task_input_features in inputs]
+        packed_inputs = rnn_utils.pad_sequence(
+            stacked_task_features, batch_first=True)
+        
+        return packed_inputs.to(self.device), sequence_lengths, targets, inputs, kernel_choices

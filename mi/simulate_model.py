@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from envs import Binz2022, Badham2017, Devraj2022, Little2022, SyntheticFunctionlearningTask, DeLosh1997
+from envs import Binz2022, Badham2017, Devraj2022, Little2022, SyntheticFunctionlearningTask, DeLosh1997, EvaluateFunctionLearning
 import argparse
 from tqdm import tqdm
 from scipy.optimize import differential_evolution, minimize
@@ -162,6 +162,11 @@ def sample_model(args):
         env.num_samples = 10
         env.batch_size = 100
         task_features = {'model_max_steps': 25, 'synthetic': True}
+    elif args.task_name == 'evaluatefunctionlearning':
+        env = EvaluateFunctionLearning(num_dims=1, max_steps=25)
+        env.num_samples = 10
+        env.batch_size = 100
+        task_features = {'model_max_steps': 25, 'synthetic': True}
     elif args.task_name == 'delosh1997':
         env = DeLosh1997(max_steps=args.model_max_steps)
         task_features = {'model_max_steps': args.model_max_steps, 'synthetic': True}
@@ -171,7 +176,7 @@ def sample_model(args):
    
     participants = env.data.participant.unique() if task_features.get('human_data') else range(env.num_samples)
     
-    if args.task_name in ['little2022', 'syntheticfunctionlearning', 'delosh1997']:
+    if args.task_name in ['little2022', 'syntheticfunctionlearning', 'delosh1997', 'evaluatefunctionlearning']:
 
         model_errors, per_trial_model_errors, model_preds, targets, human_preds, ground_truth_functions = [], [], [], [], [], []
         for participant in participants:
