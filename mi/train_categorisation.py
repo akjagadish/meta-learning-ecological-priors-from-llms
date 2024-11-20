@@ -40,8 +40,6 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
     # setup optimizer
     # optimizer = optim.Adam(model.parameters(), lr=lr)
     optimizer = schedulefree.AdamWScheduleFree(model_parameters, lr=args.lr, weight_decay=ess_init)
-    losses = []  # keep track of losses
-    accuracy = []  # keep track of accuracies
 
     # train for num_episodes
     for t in tqdm(range(start_id, int(num_episodes))):
@@ -51,9 +49,13 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
         optimizer.zero_grad()
         targets = targets.reshape(-1).float() if synthetic or rmc else torch.concat(targets, axis=0).float().to(device)
         loss = model.compute_loss(packed_inputs, targets, sequence_lengths)
-
+        
+        with torch.no_grad():
+            norm = torch.norm(torch.cat([p.flatten() for p in model_parameters if p is not None]), 2)
+        
         # backprop
         loss.backward()
+
         # Calculate and log gradient norm
         total_norm = 0
         for p in model.parameters():
@@ -61,10 +63,12 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
                 param_norm = p.grad.data.norm(2)
                 total_norm += param_norm.item() ** 2
         total_norm = total_norm ** 0.5
-        wandb.log({"gradient_norm": total_norm})
+
+        # Clip gradient norm
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
+        # Anneal lambda
         if annealing_fraction > 0:
           for param_group in optimizer.param_groups:
                 ess_t = annealed_lambda(t+1, num_episodes, ess_init, ess, annealing_fraction)
@@ -72,9 +76,8 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
                 wandb.log({"annealing lambda": ess_t})
 
         # logging
-        losses.append(loss.item())
         if (not t % print_every):
-            wandb.log({"loss": loss, "episode": t})
+            wandb.log({"loss": loss.item(), "episode": t, "l2 norm": norm.item(), "gradient_norm": total_norm})
 
         if (not t % save_every):
             torch.save([t, model.state_dict(), optimizer.state_dict(), ess], save_dir)
@@ -82,10 +85,7 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
             acc = evaluate_classification(env_name=env_name, experiment=experiment, paradigm='categorization', paired=False, policy='bernoulli',
                                           env=None, model=model, mode='val', shuffle_trials=shuffle, loss=loss_fn, max_steps=max_steps, 
                                           num_dims=num_dims, optimizer=optimizer, device=device)
-            accuracy.append(acc)
             wandb.log({"Val. Acc.": acc})
-
-    return losses, accuracy
 
 
 if __name__ == "__main__":
