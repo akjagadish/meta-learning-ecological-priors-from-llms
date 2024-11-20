@@ -470,12 +470,12 @@ def proportion_function_types(mode, first=False):
 
 def model_errors_function_types(FIGSIZE=(12, 6)):
     # Load the data
-    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=syntheticfunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
-    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=syntheticfunctionlearning_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
-    functions = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis']
-    function_names = {'positive_linear': 'Positive Linear', 'negative_linear': 'Negative Linear', 'quadratic': 'Quadratic', 'radial_basis': 'Radial Basis'}
+    functions = ['positive_linear', 'negative_linear', 'quadratic', 'sinusoidal']# 'radial_basis', '
+    function_names = {'positive_linear': 'Positive Linear', 'negative_linear': 'Negative Linear', 'quadratic': 'Quadratic', 'radial_basis': 'Radial Basis', 'sinusoidal': 'Sinusoidal'}
     error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
     error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
     for function in functions:
@@ -532,8 +532,8 @@ def model_errors_function_types(FIGSIZE=(12, 6)):
 
 def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
     # load model
-    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=delosh1997_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
-    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=delosh1997_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=claude_dim1_maxsteps65_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_ess0.0_run=0_regall_essinit0.0_annealed_schedulefree_dynamic_scaling_delosh1997.npz')
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=synthetic_dim1_maxsteps65_dim1_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_ess0.0_run=0_synthetic_regall_essinit0.0_annealed_schedulefree_dynamic_scaling_delosh1997.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
     functions = ['linear', 'exponential', 'quadratic']
@@ -586,7 +586,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
             fig, axs = plt.subplots(1, 1, figsize=(6, 6))
             for i, row in subset.iterrows():
                 axs.scatter(row['Extrapolation_Input'], row['Extrapolation_Target'], label=f'Test', alpha=0.5, color='red')
-                axs.scatter(row['Input'], row['Target'], label='Training', alpha=0.5, color='black')
+                # axs.scatter(row['Input'], row['Target'], label='Training', alpha=0.5, color='black')
             axs.set_xlabel('Input', fontsize=FONTSIZE)
             axs.set_ylabel('Target', fontsize=FONTSIZE)
             axs.legend(frameon=False, fontsize=FONTSIZE-2)
@@ -619,7 +619,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
     # Plot the combined data
     sns.set(style="whitegrid")
     fig, ax = plt.subplots(figsize=FIGSIZE)
-    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, errorbar="sd", ax=ax)
+    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, ci="se", ax=ax)
     sns.despine()
     ax.legend(frameon=False, fontsize=FONTSIZE-2)
     ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
