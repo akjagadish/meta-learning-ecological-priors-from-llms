@@ -174,8 +174,7 @@ class TransformerDecoderClassification(nn.Module):
             model_choices = self.forward(packed_inputs, sequence_lengths)
             model_choices = torch.concat([model_choices[i, :seq_len] for i, seq_len in enumerate(
                 sequence_lengths)], axis=0).squeeze().float()
-            true_choices = targets.reshape(-1,
-                                           1).float().to(self.device).squeeze()
+            true_choices = targets.reshape(-1).float().to(self.device).squeeze()
             return criterion(model_choices, true_choices)
         else:
             theta = self.forward(
