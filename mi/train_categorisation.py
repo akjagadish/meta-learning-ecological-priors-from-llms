@@ -25,16 +25,15 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
     
 
     # setup model
-    if restart_training and os.path.exists(save_dir):
-        t, model = torch.load(save_dir)
-        model = model.to(device)
-        print(f'Loaded model from {save_dir}')
-        start_id = t if restart_episode_id == 0 else restart_episode_id
-    else:
-        model = TransformerDecoderClassification(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
+    model = TransformerDecoderClassification(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
                                                      num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=max_steps, loss=loss_fn, device=device).to(device)
-        start_id = 0
-
+    if restart_training and os.path.exists(save_dir):
+        t, state_dict, opt_dict, _, _ = torch.load(save_dir)
+        model.load_state_dict(state_dict)
+        restart_episode_id = t if restart_episode_id == 0 else restart_episode_id
+        print(f'Loaded model from {save_dir}')
+ 
+    start_id = restart_episode_id if restart_training else 0
     model_parameters =  list(model.parameters()) if regularize == 'all' else NotImplementedError
     #model.get_mlp_weights() if ((regularize == 'mlp_only') and (path_to_init_weights is not None)) else model.get_self_attention_weights() if ((regularize == 'attn_only') and (path_to_init_weights is not None)) else
     
@@ -78,10 +77,11 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
             wandb.log({"loss": loss, "episode": t})
 
         if (not t % save_every):
-            torch.save([t, model.state_dict()], save_dir)
-            experiment = 'synthetic' if synthetic else 'llm_generated'
-            acc = evaluate_classification(env_name=env_name, experiment=experiment, paired=False, policy='bernoulli',
-                                          env=None, model=model, mode='val', shuffle_trials=shuffle, loss=loss_fn, max_steps=max_steps, num_dims=num_dims, optimizer=optimizer, device=device)
+            torch.save([t, model.state_dict(), optimizer.state_dict(), ess], save_dir)
+            experiment = 'synthetic' if synthetic else 'rmc' if rmc else 'llm_generated'
+            acc = evaluate_classification(env_name=env_name, experiment=experiment, paradigm='categorization', paired=False, policy='bernoulli',
+                                          env=None, model=model, mode='val', shuffle_trials=shuffle, loss=loss_fn, max_steps=max_steps, 
+                                          num_dims=num_dims, optimizer=optimizer, device=device)
             accuracy.append(acc)
             wandb.log({"Val. Acc.": acc})
 

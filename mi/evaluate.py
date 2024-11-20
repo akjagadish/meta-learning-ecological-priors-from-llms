@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from envs import FunctionlearningTask, DecisionmakingTask, SyntheticDecisionmakingTask, SyntheticFunctionlearningTask
+from envs import CategorisationTask, ShepardsTask, NosofskysTask, LeveringsTask, SyntheticCategorisationTask, SmithsTask, RMCTask
 import torch.nn as nn
 from model import TransformerDecoderClassification, TransformerDecoderLinearWeights
 from model_utils import parse_model_path
@@ -69,17 +70,24 @@ def evaluate_regression(env_name=None, model_path=None, experiment='llm_generate
         return accuracy
 
 
-def evaluate_classification(env_name=None, model_path=None, experiment='llm_generated', paired=False, env=None, model=None, mode='val', shuffle_trials=False, loss='nll', policy='greedy', beta=1., max_steps=70, nonlinear=False, num_dims=3, device='cpu', optimizer=None, optim='adamw', return_all=False):
+def evaluate_classification(env_name=None, model_path=None, experiment='llm_generated', paradigm='decisionmaking', paired=False, env=None, model=None, mode='val', shuffle_trials=False, loss='nll', policy='greedy', beta=1., max_steps=70, nonlinear=False, num_dims=3, device='cpu', optimizer=None, optim='adamw', return_all=False):
 
-    if env is None:
-        # load environment
-        if experiment == 'synthetic':
-            env = SyntheticDecisionmakingTask(num_dims=num_dims,  mode=mode, max_steps=max_steps,
-                                              device=device).to(device)
-        elif experiment == 'llm_generated':
-            env = DecisionmakingTask(data=env_name, num_dims=num_dims,
-                                     mode=mode, max_steps=max_steps, shuffle_trials=shuffle_trials,
-                                      device=device).to(device)
+    if env is None:  # load environment
+        if paradigm == 'decisionmaking':
+            if experiment == 'synthetic':
+                env = SyntheticDecisionmakingTask(num_dims=num_dims,  mode=mode, max_steps=max_steps,
+                                                device=device).to(device)
+            elif experiment == 'llm_generated':
+                env = DecisionmakingTask(data=env_name, num_dims=num_dims,
+                                        mode=mode, max_steps=max_steps, shuffle_trials=shuffle_trials,
+                                        device=device).to(device)
+        elif paradigm == 'categorization':
+            if experiment == 'synthetic':
+                env = SyntheticCategorisationTask(nonlinear=nonlinear, num_dims=num_dims, max_steps=max_steps, shuffle_trials=shuffle_trials)
+            elif experiment == 'rmc':
+                env = RMCTask(data=env_name, num_dims=num_dims, max_steps=max_steps, shuffle_trials=shuffle_trials)
+            elif experiment == 'llm_generated':
+                env = CategorisationTask(data=env_name, num_dims=num_dims, mode=mode, max_steps=max_steps, shuffle_trials=shuffle_trials)
         
     if model is None:
         # load model
@@ -95,8 +103,7 @@ def evaluate_classification(env_name=None, model_path=None, experiment='llm_gene
                                                     num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
         
         # load model weights
-        state_dict = torch.load(
-            model_path, map_location=device)[1]
+        state_dict = torch.load(model_path, map_location=device)[1]
         model.load_state_dict(state_dict)
         model.to(device)
 
@@ -106,19 +113,18 @@ def evaluate_classification(env_name=None, model_path=None, experiment='llm_gene
 
     with torch.no_grad():
         # sample batch
-        packed_inputs, sequence_lengths, targets = env.sample_batch(
-            paired=paired)
+        packed_inputs, sequence_lengths, targets = env.sample_batch(paired=paired)
         model.device = device
         model.beta = beta  # model beta is adjustable at test time
 
         # model choices
-        model_choice_probs = model(packed_inputs, sequence_lengths)
+        model_choice_probs = model(packed_inputs.to(device), sequence_lengths)
 
         # sample from model choices probs using bernoulli distribution or use greedy policy
         model_choices = Bernoulli(probs=model_choice_probs).sample() if policy == 'bernoulli' else model_choice_probs.round()
         model_choices = torch.concat([model_choices[i, :seq_len] for i, seq_len in enumerate(
             sequence_lengths)], axis=0).squeeze().float()
-        true_choices = targets.reshape(-1, 1).float().to(device).squeeze()
+        true_choices = torch.concat(targets, axis=0).float().to(device) if isinstance(targets, list) else targets.reshape(-1, 1).float().to(device).squeeze()
         accuracy = (model_choices == true_choices).sum() / \
             (model_choices.shape[0])
 

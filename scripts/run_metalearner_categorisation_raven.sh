@@ -1,13 +1,14 @@
 #!/bin/bash -l
-#SBATCH -o ./logs/%A.out
-#SBATCH -e ./logs/%A.err
-#SBATCH --job-name=LLM_Priors
+#SBATCH -o ./logs/%A_%a.out
+#SBATCH -e ./logs/%A_%a.err
+#SBATCH --job-name=cat_learning
+#SBATCH --time=24:00:00
+#SBATCH --constraint="gpu"
+#SBATCH --gres=gpu:a100:1
+#SBATCH --mem=40G
+#SBATCH --cpus-per-task=18
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=akshaykjagadish@gmail.com
-#SBATCH --time=100:00:00
-#SBATCH --constraint="gpu"
-#SBATCH --cpus-per-task=18
-#SBATCH --gres=gpu:1
 
 cd ~/ermi/
 module purge 

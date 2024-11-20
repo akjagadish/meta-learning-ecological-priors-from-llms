@@ -589,7 +589,7 @@ class CategorisationTask(nn.Module):
 
         return inputs, targets
 
-    def sample_batch(self):
+    def sample_batch(self, paired=False):
 
         data = self.data[self.data.task_id.isin(self.return_tasks())]
         # flip targets to 0 or 1 based on a random number
@@ -687,7 +687,7 @@ class SyntheticCategorisationTask(nn.Module):
 
         return inputs, targets
 
-    def sample_batch(self, mode='train'):
+    def sample_batch(self, mode='train', paired=False):
         
         # generate synthetic data
         inputs, targets = self.get_synthetic_data(mode)
