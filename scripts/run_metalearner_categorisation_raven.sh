@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=18
 #SBATCH --gres=gpu:1
 
-cd ~/ermi/categorisation/
+cd ~/ermi/
 module purge 
 module load cuda/11.6
 module load anaconda/3/2021.11 # need to use old anaconda version so it uses torch that is compatible with cuda 11.6 and allows using GPU
@@ -22,6 +22,7 @@ pip3 install --user fire sentencepiece ipdb accelerate tqdm
 # shuffled trials: python rl2/train_transformer.py --num-episodes 500000 --save-every 100 --print-every 100 --max-steps 250 --env-name claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4  --first-run-id 0 --noise 0.0 --model-name transformer --num_hidden 256 --num_layers 6 --d_model 64 --num_head 8 --batch_size 64 --env-dir u/ajagadish/vanilla-llama/categorisation/data --first-run-id 1
 # shuffled features: python rl2/train_transformer.py --num-episodes 500000 --save-every 100 --print-every 100 --max-steps 250 --env-name claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4 --noise 0.0 --model-name transformer --num_hidden 256 --num_layers 6 --d_model 64 --num_head 8 --batch_size 64 --shuffle --env-dir u/ajagadish/vanilla-llama/categorisation/data --shuffle-features --first-run-id 2
 # shuffled features and with more trials: python rl2/train_transformer.py --sample-to-match-max-steps --num-episodes 500000 --save-every 100 --print-every 100 --max-steps 300 --env-name claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4 --noise 0.0 --model-name transformer --num_hidden 256 --num_layers 6 --d_model 64 --num_head 8 --batch_size 64 --shuffle --env-dir u/ajagadish/vanilla-llama/categorisation/data --shuffle-features --first-run-id 3
+python mi/train_categorisation.py --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --job-array --ess-init 0.0 --annealing-fraction 0.167 --sample-to-match-max-steps --num-episodes 500000 --save-every 100 --print-every 100 --max-steps 300 --optimizer schedulefree --loss bce --env-name claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4 --noise 0.0 --model-name transformer --num_hidden 256 --num_layers 6 --d_model 64 --num_head 8 --batch_size 64 --shuffle --env-dir u/ajagadish/ermi/categorisation/data/generated_tasks --save-dir /u/ajagadish/ermi/categorisation/trained_models/ --shuffle-features --first-run-id 3
 
 ## llm generated data: prompt version 5 for dim 6 data
 # (testing) python rl2/train_transformer.py --num-episodes 500000 --save-every 100 --print-every 100 --max-steps 300 --num-dims 6 --env-name claude_generated_tasks_paramsNA_dim6_data500_tasks12911_pversion5_stage1  --first-run-id 0 --noise 0.0 --model-name transformer --num_hidden 256 --num_layers 6 --d_model 64 --num_head 8 --batch_size 64 --shuffle --env-dir u/ajagadish/vanilla-llama/categorisation/data --first-run-id 2
