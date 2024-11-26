@@ -163,9 +163,9 @@ def sample_model(args):
         env.batch_size = 100
         task_features = {'model_max_steps': 25, 'synthetic': True}
     elif args.task_name == 'evaluatefunctionlearning':
-        env = EvaluateFunctionLearning(num_dims=1, max_steps=25)
-        env.num_samples = 10
-        env.batch_size = 100
+        env = EvaluateFunctionLearning(num_dims=1, max_steps=25, noise=0.1)
+        env.num_samples = 100
+        env.batch_size = 1000
         task_features = {'model_max_steps': 25, 'synthetic': True}
     elif args.task_name == 'delosh1997':
         env = DeLosh1997(max_steps=args.model_max_steps)
