@@ -35,8 +35,7 @@ def compute_loglikelihood_human_choices_under_model(env=None, model_path=None, p
                                                  num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
     
     # load model weights
-    state_dict = torch.load(
-        model_path, map_location=device, weights_only=False)[1]
+    state_dict = torch.load(model_path, map_location=device, weights_only=False)[1]
     model.load_state_dict(state_dict)
     model.to(device)
 
@@ -98,8 +97,7 @@ def compute_mses_human_predictions_under_model(env=None, model_path=None, partic
                                                  num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=model_max_steps, loss=loss_fn, device=device).to(device)
     
     #load model weights
-    state_dict = torch.load(
-        model_path, map_location=torch.device('cpu'), weights_only=False)[1]
+    state_dict = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)[1]
     model.load_state_dict(state_dict)
     model.to(device)
 
@@ -171,12 +169,16 @@ def sample_model(args):
         env = DeLosh1997(max_steps=args.model_max_steps)
         task_features = {'model_max_steps': args.model_max_steps, 'synthetic': True}
         env.num_samples = 2
+    elif args.task_name == 'kwantes2006':
+        env = DeLosh1997(max_steps=args.model_max_steps, offset=True)
+        task_features = {'model_max_steps': args.model_max_steps, 'synthetic': True}
+        env.num_samples = 2
     else:
         raise NotImplementedError
    
     participants = env.data.participant.unique() if task_features.get('human_data') else range(env.num_samples)
     
-    if args.task_name in ['little2022', 'syntheticfunctionlearning', 'delosh1997', 'evaluatefunctionlearning']:
+    if args.task_name in ['little2022', 'syntheticfunctionlearning', 'delosh1997', 'evaluatefunctionlearning', 'kwantes2006']:
 
         model_errors, per_trial_model_errors, model_preds, targets, human_preds, ground_truth_functions = [], [], [], [], [], []
         for participant in participants:
@@ -190,7 +192,7 @@ def sample_model(args):
             ground_truth_functions.append(ground_truth_function)
         return np.stack(model_preds), np.stack(model_errors), np.stack(per_trial_model_errors), np.stack(targets), np.stack(human_preds), np.stack(ground_truth_functions)
         
-    else:
+    elif args.task_name in ['badham2017', 'devraj2022', 'binz2022']:
 
         per_trial_accs, per_trial_human_accs, human_accs, accs, coeffs, exp_logs, l2_norms = [], [], [], [], [], [], []
         for participant in participants:  

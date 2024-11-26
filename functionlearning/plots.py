@@ -530,14 +530,20 @@ def model_errors_function_types(FIGSIZE=(12, 6)):
         plt.show()
         plt.savefig(f'{SYS_PATH}/figures/functionlearning_per_trial_mse_function_types_{dataset}.png', bbox_inches='tight')
 
-def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
+def model_extrapolation_delosh1997(FIGSIZE=(12, 6), offset=False):
     # load model
-    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=claude_dim1_maxsteps65_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_ess0.0_run=0_regall_essinit0.0_annealed_schedulefree_dynamic_scaling_delosh1997.npz')
-    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=synthetic_dim1_maxsteps65_dim1_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_ess0.0_run=0_synthetic_regall_essinit0.0_annealed_schedulefree_dynamic_scaling_delosh1997.npz')
+    if offset:
+        results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_kwantes2006.npz')
+        results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic_kwantes2006.npz')
+    else:
+        results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_delosh1997.npz')
+        # env=claude_dim1_maxsteps65_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_ess0.0_run=0_regall_essinit0.0_annealed_schedulefree_dynamic_scaling_delosh1997.npz')
+        results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic_delosh1997.npz')
+        # env=synthetic_dim1_maxsteps65_dim1_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_ess0.0_run=0_synthetic_regall_essinit0.0_annealed_schedulefree_dynamic_scaling_delosh1997.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
-    functions = ['linear', 'exponential', 'quadratic']
-    function_names = {'linear': 'Linear', 'exponential': 'Exponential', 'quadratic': 'Quadratic'}
+    functions = ['linear', 'linear_offset'] if offset else ['linear', 'exponential', 'quadratic']
+    function_names = {'linear': 'Linear', 'exponential': 'Exponential', 'quadratic': 'Quadratic', 'linear_offset': 'Linear with Offset'}
     error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': [], 'Per_trial_MSE': []}
     error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': [], 'Per_trial_MSE': []}
     for function in functions:
@@ -586,7 +592,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
             fig, axs = plt.subplots(1, 1, figsize=(6, 6))
             for i, row in subset.iterrows():
                 axs.scatter(row['Extrapolation_Input'], row['Extrapolation_Target'], label=f'Test', alpha=0.5, color='red')
-                # axs.scatter(row['Input'], row['Target'], label='Training', alpha=0.5, color='black')
+                axs.scatter(row['Input'], row['Target'], label='Training', alpha=0.5, color='black')
             axs.set_xlabel('Input', fontsize=FONTSIZE)
             axs.set_ylabel('Target', fontsize=FONTSIZE)
             axs.legend(frameon=False, fontsize=FONTSIZE-2)
@@ -597,7 +603,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
             plt.grid(visible=False)
             sns.despine()
             plt.show()
-            plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_{function}_{dataset}.png', bbox_inches='tight')
+            plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_function={function}_model={dataset}_offset={str(offset)}.png', bbox_inches='tight')
 
     # Plot the per-trial MSE
     sns.set(style="whitegrid")
@@ -614,12 +620,12 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
         plt.grid(visible=False)
         sns.despine()
         plt.show()
-        plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_per_trial_mse_function_types_{dataset}.png', bbox_inches='tight')
+        plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_per_trial_mse_function_types_model={dataset}_offset={str(offset)}.png', bbox_inches='tight')
     
     # Plot the combined data
     sns.set(style="whitegrid")
     fig, ax = plt.subplots(figsize=FIGSIZE)
-    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, ci="se", ax=ax)
+    sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', capsize=.1, errorbar="se", ax=ax)
     sns.despine()
     ax.legend(frameon=False, fontsize=FONTSIZE-2)
     ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
@@ -627,7 +633,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6)):
     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
     plt.grid(visible=False)
     plt.show()
-    plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_mse_function_types.png', bbox_inches='tight')
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_mse_function_types_offset={str(offset)}.png', bbox_inches='tight')
 
         
 def model_comparison_little2024(FIGSIZE=(5,5)):

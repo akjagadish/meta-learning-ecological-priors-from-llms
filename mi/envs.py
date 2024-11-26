@@ -1231,7 +1231,7 @@ class DeLosh1997(nn.Module):
     Extrapolation during function learning from DeLosh et al. 1997
     """
 
-    def __init__(self, max_steps=25, num_dims=1, scale=0.5, mode='train',  device='cpu', noise=0., normalize_inputs=True):
+    def __init__(self, max_steps=25, num_dims=1, scale=0.5, mode='train', offset=False, device='cpu', noise=0., normalize_inputs=True):
         """
         Initialise the environment
         Args:
@@ -1245,14 +1245,19 @@ class DeLosh1997(nn.Module):
         self.device = torch.device(device)
         self.train_steps = max_steps-1
         self.num_choices = 1
-        self.num_functions = 3
+        self.num_functions = 2 if offset else 3
         self.num_dims = num_dims
         self.mode = mode
         self.scale = scale
         self.noise = noise
         self.normalize = normalize_inputs
+        self.offset = offset
+
     def linear(self, x):
         return 2.2 * x + 30
+    
+    def linear_offset(self, x):
+        return 2.2 * x + 300
 
     def exponential(self, x):
         return 200 * (1 - torch.exp(-x/25))
@@ -1268,9 +1273,9 @@ class DeLosh1997(nn.Module):
             x_train = torch.tensor([30.0, 30.5, 31.0, 32.0, 33.0, 33.5, 34.5, 35.5, 36.5, 37.0, 38.0, 38.5, 39.5, 40.5, 41.5,42.0, 43.0, 43.5, 44.5, 45.5, 46.5, 47.0,
                                     48.0, 48.5, 49.0, 51.0, 51.5, 52.0, 53.0, 53.5, 54.5, 55.5, 56.5, 57.0, 58.0, 58.5, 59.5, 60.5, 61.5, 62.0, 63.0, 63.5, 64.5, 65.5, 
                                     66.5, 67.0, 68.0, 69.0, 69.5, 70.0], device=self.device)#[torch.randperm(self.train_steps)]
-        additional_samples = torch.randint(0, len(x_train), (self.train_steps - len(x_train),), device=self.device)
-        sample_indices = torch.cat((torch.arange(len(x_train), device=self.device), additional_samples))
-        x_train = x_train[sample_indices]#.sort().values
+        # additional_samples = torch.randint(0, len(x_train), (self.train_steps - len(x_train),), device=self.device)
+        # sample_indices = torch.cat((torch.arange(len(x_train), device=self.device), additional_samples))
+        # x_train = x_train[sample_indices]#.sort().values
         x_interpolate = torch.tensor([32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5], device=self.device)
         x_low_region = torch.tensor([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0,19.0,21.0, 23.0,25.0, 27.0,29.0], device=self.device)
         x_high_region = torch.tensor([71.0,73.0,75.0,77.0,79.0,81.0,83.0,85.0,87.0,89.0,91.0,93.0,95.0,97.0,99.0], device=self.device)
@@ -1280,9 +1285,10 @@ class DeLosh1997(nn.Module):
         y_linear = self.linear(x)
         y_exponential = self.exponential(x)
         y_quadratic = self.quadratic(x)
-        y_batch = torch.cat((y_linear, y_exponential, y_quadratic), dim=0)
+        y_linear_offset = self.linear_offset(x)
+        y_batch = torch.cat((y_linear, y_linear_offset), dim=0) if self.offset else torch.cat((y_linear, y_exponential, y_quadratic), dim=0)
         x_batch = x.unsqueeze(2).repeat(self.num_functions, 1, 1)
-        kernel_choices = ['linear'] * len(x_test) +  ['exponential']  * len(x_test) +  ['quadratic']  * len(x_test)
+        kernel_choices = ['linear'] * len(x_test) + ['linear_offset'] * len(x_test) if self.offset else ['linear'] * len(x_test) +  ['exponential']  * len(x_test) +  ['quadratic']  * len(x_test)
 
         return y_batch, x_batch, kernel_choices
     
@@ -1297,7 +1303,7 @@ class DeLosh1997(nn.Module):
             data_max =  data.max(dim=1, keepdim=True).values if set_max is None else set_max
             return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
         
-        targets = stacked_normalized(targets, self.scale, 0, 250) if self.normalize else targets
+        targets = stacked_normalized(targets, self.scale, 100, 250 + 300 if self.offset else 250) if self.normalize else targets
         inputs = stacked_normalized(inputs, self.scale, 0, 100) if self.normalize else inputs
         shifted_targets = torch.concatenate((torch.zeros((self.batch_size, 1), device=self.device), targets[:, :-1]), dim=1)
         # concatenate inputs and targets
@@ -1344,7 +1350,7 @@ class EvaluateFunctionLearning(nn.Module):
         return weight[:, None] * x + intercept[:, None]
 
     def negative_linear(self, x, weight, intercept):
-        return -np.abs(weight[:, None]) * x + intercept[:, None]
+        return -weight[:, None] * x + intercept[:, None]
 
     def quadratic(self, x, weight, intercept):
         return weight[:, None] * x**2 + intercept[:, None]
