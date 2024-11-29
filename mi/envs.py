@@ -1303,7 +1303,7 @@ class DeLosh1997(nn.Module):
             data_max =  data.max(dim=1, keepdim=True).values if set_max is None else set_max
             return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
         
-        targets = stacked_normalized(targets, self.scale, 100, 250 + 300 if self.offset else 250) if self.normalize else targets
+        targets = stacked_normalized(targets, self.scale, 0, 250 + 300 if self.offset else 250) if self.normalize else targets
         inputs = stacked_normalized(inputs, self.scale, 0, 100) if self.normalize else inputs
         shifted_targets = torch.concatenate((torch.zeros((self.batch_size, 1), device=self.device), targets[:, :-1]), dim=1)
         # concatenate inputs and targets
