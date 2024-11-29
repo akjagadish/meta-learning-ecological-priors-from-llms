@@ -475,7 +475,7 @@ def model_errors_function_types(FIGSIZE=(12, 6)):
 
     # Extract unique functions and calculate MSE for results_ermi
     functions = ['positive_linear', 'negative_linear', 'quadratic', 'sinusoidal']# 'radial_basis', '
-    function_names = {'positive_linear': 'Positive Linear', 'negative_linear': 'Negative Linear', 'quadratic': 'Quadratic', 'radial_basis': 'Radial Basis', 'sinusoidal': 'Sinusoidal'}
+    function_names = {'positive_linear': 'Positive Linear', 'negative_linear': 'Negative Linear', 'quadratic': 'Quadratic', 'radial_basis': 'Radial Basis', 'sinusoidal': 'Periodic'}
     error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
     error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
     for function in functions:
@@ -542,7 +542,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6), offset=False):
         # env=synthetic_dim1_maxsteps65_dim1_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_ess0.0_run=0_synthetic_regall_essinit0.0_annealed_schedulefree_dynamic_scaling_delosh1997.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
-    functions = ['linear', 'linear_offset'] if offset else ['linear', 'exponential', 'quadratic']
+    functions = ['linear_offset'] if offset else ['linear']#, 'exponential', 'quadratic']
     function_names = {'linear': 'Linear', 'exponential': 'Exponential', 'quadratic': 'Quadratic', 'linear_offset': 'Linear with Offset'}
     error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': [], 'Per_trial_MSE': []}
     error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Input': [], 'Target': [], 'Extrapolation_Input': [], 'Extrapolation_Target': [], 'Per_trial_MSE': []}
@@ -585,6 +585,14 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6), offset=False):
     df_combined = pd.concat([df_ermi, df_mi])
 
     # scatter plot of Input vs Target and Extrapolation Input vs Extrapolation Target for each function
+    def linear(x):
+        return 2.2 * x + 30
+    
+    x = np.linspace(1., 101., 100)
+    y = linear(x)
+    y = y/250 - 0.5
+    x = x/100 - 0.5
+
     sns.set(style="whitegrid")
     for dataset in df_combined['Dataset'].unique():
         for function in df_combined['Function'].unique():
@@ -592,7 +600,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6), offset=False):
             fig, axs = plt.subplots(1, 1, figsize=(6, 6))
             for i, row in subset.iterrows():
                 axs.scatter(row['Extrapolation_Input'], row['Extrapolation_Target'], label=f'Test', alpha=0.5, color='red')
-                axs.scatter(row['Input'], row['Target'], label='Training', alpha=0.5, color='black')
+            axs.plot(x, y, label='Ground Truth', color='black', linestyle='--')
             axs.set_xlabel('Input', fontsize=FONTSIZE)
             axs.set_ylabel('Target', fontsize=FONTSIZE)
             axs.legend(frameon=False, fontsize=FONTSIZE-2)
