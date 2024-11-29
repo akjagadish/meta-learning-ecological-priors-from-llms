@@ -40,16 +40,12 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
     # setup optimizer
     # optimizer = optim.Adam(model.parameters(), lr=lr)
     optimizer = schedulefree.AdamWScheduleFree(model_parameters, lr=args.lr, weight_decay=ess_init)
+    if restart_training and os.path.exists(save_dir):
+        optimizer.load_state_dict(opt_dict)
+        print(f'Loaded optimizer from {save_dir}')
 
     # train for num_episodes
     for t in tqdm(range(start_id, int(num_episodes))):
-
-        # Anneal weight decay term
-        if annealing_fraction > 0:
-          for param_group in optimizer.param_groups:
-                ess_t = annealed_lambda(t, num_episodes, ess_init, ess, annealing_fraction)
-                param_group['weight_decay'] = ess_t
-                wandb.log({"annealing lambda": ess_t})
 
         optimizer.train()
         model.train()
@@ -76,6 +72,13 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
+        # Anneal weight decay term
+        if annealing_fraction > 0:
+          for param_group in optimizer.param_groups:
+                ess_t = annealed_lambda(t, num_episodes, ess_init, ess, annealing_fraction)
+                param_group['weight_decay'] = ess_t
+                wandb.log({"annealing lambda": ess_t})
+                
         # logging
         if (not t % print_every):
             wandb.log({"loss": loss.item(), "episode": t, "l2 norm": norm.item(), "gradient_norm": total_norm})
