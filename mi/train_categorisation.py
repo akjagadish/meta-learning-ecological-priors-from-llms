@@ -28,7 +28,7 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
     model = TransformerDecoderClassification(num_input=env.num_dims, num_output=env.num_choices, num_hidden=num_hidden,
                                                      num_layers=num_layers, d_model=d_model, num_head=num_head, max_steps=max_steps, loss=loss_fn, device=device).to(device)
     if restart_training and os.path.exists(save_dir):
-        t, state_dict, opt_dict, _, _ = torch.load(save_dir)
+        t, state_dict, opt_dict, _ = torch.load(save_dir)
         model.load_state_dict(state_dict)
         restart_episode_id = t if restart_episode_id == 0 else restart_episode_id
         print(f'Loaded model from {save_dir}')
@@ -43,6 +43,14 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
 
     # train for num_episodes
     for t in tqdm(range(start_id, int(num_episodes))):
+
+        # Anneal weight decay term
+        if annealing_fraction > 0:
+          for param_group in optimizer.param_groups:
+                ess_t = annealed_lambda(t, num_episodes, ess_init, ess, annealing_fraction)
+                param_group['weight_decay'] = ess_t
+                wandb.log({"annealing lambda": ess_t})
+
         optimizer.train()
         model.train()
         packed_inputs, sequence_lengths, targets = env.sample_batch()
@@ -67,13 +75,6 @@ def run(env_name, nonlinear, restart_training, restart_episode_id, num_episodes,
         # Clip gradient norm
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-
-        # Anneal lambda
-        if annealing_fraction > 0:
-          for param_group in optimizer.param_groups:
-                ess_t = annealed_lambda(t+1, num_episodes, ess_init, ess, annealing_fraction)
-                param_group['weight_decay'] = ess_t
-                wandb.log({"annealing lambda": ess_t})
 
         # logging
         if (not t % print_every):
