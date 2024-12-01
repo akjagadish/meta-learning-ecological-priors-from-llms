@@ -15,18 +15,30 @@ module load cuda/12.1
 module load pytorch/gpu-cuda-12.1/2.2.0
 pip3 install --user ipdb torch transformers tensorboard ipdb tqdm schedulefree
 
-#  evaluatefunctionlearning on specfic tasks
-# python mi/simulate_model.py --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --job-array --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=synthetic_dim1_maxsteps25_dim1_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_ess1.0_run=0_synthetic_regall_essinit0.0_annealed_schedulefree
-# python mi/simulate_model.py --ess ${SLURM_ARRAY_TASK_ID} --offset 0 --scale 0.5 --job-array --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_ess7.0_run=0_regall_essinit0.0_annealed_schedulefree
+## little2022
+python mi/simulate_model.py --exp-id 1 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+python mi/simulate_model.py --exp-id 1 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+
+python mi/simulate_model.py --exp-id 2 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+python mi/simulate_model.py --exp-id 2 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+
+python mi/simulate_model.py --exp-id 3 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+python mi/simulate_model.py --exp-id 3 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+
+python mi/simulate_model.py --exp-id 4 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+python mi/simulate_model.py --exp-id 4 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+
+# evaluatefunctionlearning on specfic tasks
+# python mi/simulate_model.py --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=synthetic_dim1_maxsteps25_dim1_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_ess1.0_run=0_synthetic_regall_essinit0.0_annealed_schedulefree
+# python mi/simulate_model.py --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_ess7.0_run=0_regall_essinit0.0_annealed_schedulefree
 
 ## kwantes2006
-python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name kwantes2006 --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
-python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name kwantes2006 --policy greedy --use-filename --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
-
+# python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name kwantes2006 --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+# python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name kwantes2006 --policy greedy --use-filename --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
 
 ## delosh1997
-python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name delosh1997 --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
-python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name delosh1997 --policy greedy --use-filename --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+# python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name delosh1997 --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+# python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name delosh1997 --policy greedy --use-filename --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
 
 ### regular model (use-filename)
 # python mi/simulate_model.py --ess ${SLURM_ARRAY_TASK_ID} --model_max_steps 25 --offset 0 --scale 0.5 --job-array --paradigm functionlearning --task-name delosh1997 --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes250000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_ess7.0_run=0_regall_essinit0.0_annealed_schedulefree
