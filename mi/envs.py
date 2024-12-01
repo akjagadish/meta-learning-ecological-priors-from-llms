@@ -1135,17 +1135,17 @@ class Devraj2022(nn.Module):
 
 class Little2022(nn.Module):
     """
-    load human data from Badham et al. 2017
+    load human data from Little 2024
     """
     
-    def __init__(self, noise=0., return_true_values=True, scale=0.5, evaluate_on_train_data=True, sampling_rate=48, device='cpu'):
+    def __init__(self, noise=0., condition=1, return_true_values=True, scale=0.5, evaluate_human_preds=False, sampling_rate=48, device='cpu'):
         super(Little2022, self).__init__()
         DATA_PATH = f'{SYS_PATH}/functionlearning/data/human'
+        NUM_TASKS = 24 # number of tasks completed by each participant
         self.device = torch.device(device)
         self.data = pd.read_csv(f'{DATA_PATH}/little2022functionestimation.csv')
-        # filter participants with less than 24 tasks
-        self.data = self.data.groupby('participant').filter(lambda x: len(x.task.unique()) == 24) 
-        self.evaluate_on_train_data = evaluate_on_train_data
+        self.data = self.data.groupby('participant').filter(lambda x: len(x.task.unique()) == NUM_TASKS) # keeps participants compleded all tasks
+        self.evaluate_human_preds = evaluate_human_preds
         # Function to scale 'x' and 'y' for each participant and task
         def scale_participant_task_data(group):
             scaler = MinMaxScaler(feature_range=(-scale, scale))
@@ -1158,10 +1158,9 @@ class Little2022(nn.Module):
         self.num_dims = 1
         self.num_choices = 1
         self.return_true_values = return_true_values
-        #TODO: provice these contraints a bit better
-        num_points = 24 # 6 or 24
-        scale = 2 # 1 is zoomed in or 2 is zoomed out
-        self.sampling_rate = sampling_rate if evaluate_on_train_data == False else None
+        self.sampling_rate = sampling_rate if evaluate_human_preds else None
+        conditions = {1: (24, 1), 2: (6, 1), 3: (24, 2), 4: (6, 2)}
+        num_points, scale = conditions.get(condition, (24, 1)) # scale: 1 is zoomed in, 2 is zoomed out
         self.data = self.data[(self.data.num_points==num_points) & (self.data.scale==scale)]
         self.noise = noise
 
@@ -1197,12 +1196,12 @@ class Little2022(nn.Module):
 
             # get the predictions made by the participants
             test_condition = (data_participant.task==task_id) & (data_participant.type=='test')
-            if self.evaluate_on_train_data:
-                test_features = train_features
-                test_preds = train_preds
-            else:
+            if self.evaluate_human_preds:
                 test_features =  data_participant[test_condition].x.values[::self.sampling_rate].reshape(-1,1)
                 test_preds = data_participant[test_condition].y.values[::self.sampling_rate].reshape(-1,1)
+            else:
+                test_features = train_features
+                test_preds = train_preds
             pred_values = np.concatenate((test_features, test_preds), axis=1)
 
             for (x_test, y_test) in zip(test_features, test_preds):

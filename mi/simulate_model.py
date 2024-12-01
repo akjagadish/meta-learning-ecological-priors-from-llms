@@ -153,7 +153,7 @@ def sample_model(args):
         env = Binz2022(experiment_id=args.exp_id)
         task_features = {'model_max_steps': 10, 'human_data': True}
     elif args.task_name == 'little2022':
-        env = Little2022()
+        env = Little2022(condition=args.exp_id, evaluate_human_preds=True)
         task_features = {'model_max_steps': 25, 'human_data': True}
     elif args.task_name == 'syntheticfunctionlearning':
         env = SyntheticFunctionlearningTask(num_dims=1, mode='test', max_steps=25)
