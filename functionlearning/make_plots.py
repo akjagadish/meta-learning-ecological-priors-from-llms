@@ -16,7 +16,10 @@ from plots import plot_functionlearning_data_statistics, proportion_function_typ
 
 # model extrapolation
 # model_extrapolation_delosh1997()
-model_extrapolation_delosh1997(offset=True)
+# model_extrapolation_delosh1997(offset=True)
 
 # mode comparison
-# model_comparison_little2024()
+model_comparison_little2024(experiment_id=1)
+model_comparison_little2024(experiment_id=2)
+model_comparison_little2024(experiment_id=3)
+model_comparison_little2024(experiment_id=4)
