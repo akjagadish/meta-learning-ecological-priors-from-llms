@@ -57,11 +57,10 @@ def run(env_name, restart_training, restart_episode_id, num_episodes, ess, ess_i
         packed_inputs, sequence_lengths, targets = env.sample_batch()
         with torch.no_grad():
             norm = torch.norm(torch.cat([p.flatten() for p in model.parameters() if p is not None]), 2).item()
-
-        loss = model.compute_loss(packed_inputs, targets, sequence_lengths)
-        # backprop
+        
         optimizer.zero_grad()
-        loss.backward()
+        loss = model.compute_loss(packed_inputs, targets, sequence_lengths)
+        loss.backward()  # backprop
         # Calculate and log gradient norm
         total_norm = 0
         for p in model.parameters():
