@@ -461,12 +461,14 @@ def proportion_function_types(mode, first=False):
 
 def model_errors_function_types(FIGSIZE=(12, 6)):
     # Load the data
-    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
-    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy.npz')
+                        #  task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
+    results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy.npz')
+                        #    task=evaluatefunctionlearning_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
 
     # Extract unique functions and calculate MSE for results_ermi
-    functions = ['positive_linear', 'negative_linear', 'quadratic', 'sinusoidal']# 'radial_basis', '
-    function_names = {'positive_linear': 'Positive Linear', 'negative_linear': 'Negative Linear', 'quadratic': 'Quadratic', 'radial_basis': 'Radial Basis', 'sinusoidal': 'Periodic'}
+    functions = ['positive_linear', 'negative_linear', 'exponential', 'quadratic', 'sinusoidal']
+    function_names = {'positive_linear': '$\plus$ Linear', 'negative_linear': '$\minus$ Linear', 'quadratic': 'Quadratic', 'exponential': 'Exponential', 'sinusoidal': 'Periodic'}
     error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
     error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
     for function in functions:
@@ -480,6 +482,7 @@ def model_errors_function_types(FIGSIZE=(12, 6)):
         error_dict_ermi['Per_trial_MSE'].append(per_trial_mse)
         
         mse = results_mi['model_errors'].squeeze()[(results_mi['ground_truth_functions'] == function)].mean()
+        ground_truth_functions_repeated = np.repeat(results_mi['ground_truth_functions'][:, :, np.newaxis], num_trials, axis=2).reshape(-1, num_trials)
         per_trial_mse = results_mi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)

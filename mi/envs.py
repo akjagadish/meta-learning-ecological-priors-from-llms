@@ -1343,7 +1343,6 @@ class EvaluateFunctionLearning(nn.Module):
 
     def sample_parameters(self):
         return torch.distributions.Uniform(-1., 1.).sample((self.batch_size,)).to(self.device)
-        #torch.distributions.Gamma(1.001, 1.).sample((self.batch_size,)).to(self.device)
     
     def positive_linear(self, x, weight, intercept):
         return weight[:, None] * x + intercept[:, None]
@@ -1357,6 +1356,9 @@ class EvaluateFunctionLearning(nn.Module):
     def radial_basis(self, x, height, distance):
         return height[:, None] * torch.exp(-distance[:, None] * x**2)
     
+    def exponential(self, x, weight, intercept, scale):
+        return weight[:, None] * torch.exp(scale[:, None] * x) + intercept[:, None]
+
     def sinusoidal(self, x, weight, intercept, phase, frequency):
         return weight[:, None] * torch.sin(x*frequency[:, None]*2*np.pi - phase[:, None]) + intercept[:, None]
 
@@ -1364,7 +1366,7 @@ class EvaluateFunctionLearning(nn.Module):
         
         x = torch.linspace(-1, 1, self.max_steps, device=self.device)[torch.randperm(self.max_steps)]
         prior_probs = [1, 1, 1, 1, 1]
-        kernel_types = ['positive_linear', 'negative_linear', 'quadratic', 'radial_basis', 'sinusoidal']
+        kernel_types = ['positive_linear', 'negative_linear', 'quadratic', 'exponential', 'sinusoidal']
         kernel_choices = np.random.choice(kernel_types, size=self.batch_size, p=np.array(prior_probs) / sum(prior_probs))
         weights = self.sample_parameters().to(self.device)
         intercepts = self.sample_parameters().to(self.device)
@@ -1378,13 +1380,13 @@ class EvaluateFunctionLearning(nn.Module):
         positive_linear_mask = kernel_choices == 'positive_linear'
         negative_linear_mask = kernel_choices == 'negative_linear'
         quadratic_mask = kernel_choices == 'quadratic'
-        radial_basis_mask = kernel_choices == 'radial_basis'
+        exponential_mask = kernel_choices == 'exponential'
         sinusoidal_mask = kernel_choices == 'sinusoidal'
         
         y_batch[positive_linear_mask] = self.positive_linear(x, np.abs(weights[positive_linear_mask]), intercepts[positive_linear_mask]).to(self.device)
         y_batch[negative_linear_mask] = self.negative_linear(x, np.abs(weights[negative_linear_mask]), intercepts[negative_linear_mask]).to(self.device)
         y_batch[quadratic_mask] = self.quadratic(x, weights[quadratic_mask], intercepts[quadratic_mask]).to(self.device)
-        y_batch[radial_basis_mask] = self.radial_basis(x, heights[radial_basis_mask], distances[radial_basis_mask]).to(self.device)
+        y_batch[exponential_mask] = self.exponential(x, weights[exponential_mask], intercepts[exponential_mask], distances[exponential_mask]).to(self.device)
         y_batch[sinusoidal_mask] = self.sinusoidal(x, weights[sinusoidal_mask], intercepts[sinusoidal_mask], phases[sinusoidal_mask], np.abs(frequencies[sinusoidal_mask])).to(self.device)
 
         y_batch += self.noise * torch.randn(self.batch_size, self.max_steps).to(self.device)
