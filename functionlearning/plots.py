@@ -39,7 +39,7 @@ def plot_functionlearning_data_statistics(mode=0):
     def return_data_stats(data, poly_degree=2, first=False):
 
         df = data.copy()
-        max_tasks = 400
+        max_tasks = 1000
         max_trial = 20
         # sample tasks
         tasks = range(0, max_tasks) if first else np.random.choice(
@@ -141,7 +141,7 @@ def plot_functionlearning_data_statistics(mode=0):
         env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/synthetic_functionlearning_tasks_dim1_data25_tasks10000'
         color_stats = '#66828F'  # 5d7684'# '#5d7684'
     elif mode == 2:  # first plot
-        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/real_data'
+        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/real_data_dim1_methodrandom_lichtenberg2017'
         color_stats = '#173b4f'  # '#0D2C3D' #'#8b9da7'
 
     # load data
@@ -225,7 +225,7 @@ def plot_functionlearning_data_statistics(mode=0):
         np.savez(f'{SYS_PATH}/functionlearning/data/stats/stats_{str(mode)}.npz', all_corr=all_corr, gini_coeff=gini_coeff, posterior_logprob=posterior_logprob, all_accuraries_linear=all_accuraries_linear,
                  all_accuraries_polynomial=all_accuraries_polynomial, all_targets_with_norm=all_targets_with_norm, all_features_with_norm=all_features_with_norm)
 
-def proportion_function_types(mode, first=False):
+def proportion_function_types(mode, first=True):
 
     # set env_name and color_stats based on mode
     if mode == 0:
@@ -240,7 +240,7 @@ def proportion_function_types(mode, first=False):
 
     # Load the dataset
     df = pd.read_csv(f'{env_name}.csv')
-    max_tasks = 3000 if mode == 0 or mode==1 else 750 #1000
+    max_tasks = 5000 if mode == 0 or mode==1 else 750 #1000
     tasks = range(0, max_tasks) if first else np.random.choice(df.task_id.unique(), max_tasks, replace=False)
     # Initialize a list to store model parameters
     model_params_df = None
@@ -269,14 +269,14 @@ def proportion_function_types(mode, first=False):
     # def cubic_model(x, a, b, c, d):
     #     return a * x**3 + b * x**2 + c * x + d
 
-    def periodic_model(x, a, b, c, d):
-        return a * np.sin(b * x + c) + d
+    def periodic_model(x, a, b, d):
+        return a * np.sin(b * x) + d #a * np.sin(b * x + c) + d
 
     def quadratic_model(x, a, b, c):
         return a * x**2 + b * x + c
 
-    def exponential_model(x, a, b, c):
-        return a * np.exp(b * x) + c
+    def exponential_model(x, a, b, c, d):
+        return a * np.exp(b * x + c) + d
     
     def linear_model(x, a, b):
         return a * x + b
@@ -363,9 +363,9 @@ def proportion_function_types(mode, first=False):
                 # elif best_model == 'cubic':
                 #     params = {'model': 'cubic', 'a': popt_cubic[0], 'b': popt_cubic[1], 'c': popt_cubic[2], 'd': popt_cubic[3], 'bic': cubic_bic}
                 elif best_model == 'periodic':
-                    params = {'model': 'periodic', 'a': popt_periodic[0], 'b': popt_periodic[1], 'c': popt_periodic[2], 'd': popt_periodic[3], 'bic': periodic_bic}
+                    params = {'model': 'periodic', 'a': popt_periodic[0], 'b': popt_periodic[1], 'd': popt_periodic[2], 'bic': periodic_bic} #'b': popt_periodic[1], 'c': popt_periodic[2], 'd': popt_periodic[3],
                 elif best_model == 'exponential':
-                    params = {'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'bic': exp_bic}
+                    params = {'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'd': popt_exp[3], 'bic': exp_bic}
                 params['task_id'] = task_id
                 model_params.append(params)
                 linear_model_params.append({'slope': popt_linear[0], 'intercept': popt_linear[1]})
@@ -444,8 +444,8 @@ def proportion_function_types(mode, first=False):
     # find top-3 functions from each model type based on the fitted bics and plot them as line plots
     fig, ax = plt.subplots(figsize=(10, 6))
     for model in ['linear', 'quadratic',  'exponential']:#'cubic',
-        top_3 = model_params_df[model_params_df['model'] == model].sort_values('bic').head(5)
-        for i, row in top_3.iterrows():
+        top_models = model_params_df[model_params_df['model'] == model].sort_values('bic').head(3)
+        for i, row in top_models.iterrows():
             task_data = df[df['task_id'] == row['task_id']]
             sns.lineplot(x=task_data['input'], y=task_data['target'], ax=ax)
         sns.despine()
@@ -486,13 +486,13 @@ def model_errors_function_types(FIGSIZE=(12, 6)):
         per_trial_mse = results_mi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)
-        error_dict_mi['Dataset'].append('MI')
+        error_dict_mi['Dataset'].append('RMF')
         error_dict_mi['Per_trial_MSE'].append(per_trial_mse)
 
     # Combine the data into a single DataFrame
     df_ermi = pd.DataFrame(error_dict_ermi)
     df_mi = pd.DataFrame(error_dict_mi)
-    df_combined = pd.concat([df_ermi, df_mi])
+    df_combined = pd.concat([df_ermi, df_mi])  
 
     # Plot the combined data
     sns.set(style="whitegrid")
@@ -566,7 +566,7 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6), offset=False):
         per_trial_mse = results_mi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)
-        error_dict_mi['Dataset'].append('MI')
+        error_dict_mi['Dataset'].append('RMF')
         error_dict_mi['Input'].append(input_data)
         error_dict_mi['Target'].append(target_data)
         error_dict_mi['Extrapolation_Input'].append(extrapolation_input)
@@ -584,8 +584,8 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6), offset=False):
     
     x = np.linspace(1., 101., 100)
     y = linear(x)
-    y = y/250 - 0.5
-    x = x/100 - 0.5
+    # y = y/250 - 0.5
+    # x = x/100 - 0.5
 
     sns.set(style="whitegrid")
     for dataset in df_combined['Dataset'].unique():
@@ -593,16 +593,17 @@ def model_extrapolation_delosh1997(FIGSIZE=(12, 6), offset=False):
             subset = df_combined[(df_combined['Function'] == function) & (df_combined['Dataset'] == dataset)]
             fig, axs = plt.subplots(1, 1, figsize=(6, 6))
             for i, row in subset.iterrows():
-                axs.scatter(row['Extrapolation_Input'], row['Extrapolation_Target'], label=f'Test', alpha=0.5, color='red')
-            axs.plot(x, y, label='Ground Truth', color='black', linestyle='--')
+                axs.scatter((row['Extrapolation_Input']+0.5)*100, (row['Extrapolation_Target']+0.5)*250, label=dataset, alpha=1.0, color='#5975a4ff' if dataset == "ERMI" else '#cc8963ff')
+            axs.plot(x, y, label='Correct', color='black', linestyle='-')
             axs.set_xlabel('Input', fontsize=FONTSIZE)
             axs.set_ylabel('Target', fontsize=FONTSIZE)
             axs.legend(frameon=False, fontsize=FONTSIZE-2)
             axs.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
             # add vertical dotted line as a separator at x = -0.5 and x = 0.5
-            axs.axvline(x=-0.25, color='black', linestyle='--', alpha=0.5)
-            axs.axvline(x=0.25, color='black', linestyle='--', alpha=0.5)
+            # axs.axvline(x=-0.25, color='black', linestyle='--', alpha=0.5)
+            # axs.axvline(x=0.25, color='black', linestyle='--', alpha=0.5)
             plt.grid(visible=False)
+            plt.ylim(-2, 300)
             sns.despine()
             plt.show()
             plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_function={function}_model={dataset}_offset={str(offset)}.png', bbox_inches='tight')
@@ -642,7 +643,7 @@ def model_comparison_little2024(FIGSIZE=(5,5), experiment_id=1, bermi=False):
     sns.set(style="whitegrid")
     task_name = 'little2022'
     if bermi:
-        mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_method=unbounded.npz')
+        rmf = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_method=unbounded.npz')
         ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_method=unbounded.npz')
         bermi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=little2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_method=bounded.npz')
         bmi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=little2022_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_method=bounded.npz')
@@ -652,15 +653,15 @@ def model_comparison_little2024(FIGSIZE=(5,5), experiment_id=1, bermi=False):
                                     'BERMI':bermi['nlls'],
                                     'BMI':bmi['nlls'],
                                     'ERMI':ermi['nlls'],
-                                    'MI':mi['nlls'],
+                                    'RMF':rmf['nlls'],
                                     })
     else:
-        mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment={experiment_id}_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy.npz')
+        rmf = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment={experiment_id}_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy.npz')
         ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment={experiment_id}_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy.npz')
        
         df = pd.DataFrame.from_dict({
                                     'ERMI':ermi['model_errors'].mean(1).squeeze(), 
-                                    'MI':mi['model_errors'].mean(1).squeeze(), 
+                                    'RMF':rmf['model_errors'].mean(1).squeeze(), 
                                     })
 
     fig, ax = plt.subplots(figsize=FIGSIZE)
@@ -677,20 +678,20 @@ def model_comparison_little2024(FIGSIZE=(5,5), experiment_id=1, bermi=False):
         bermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(bermi["ess"][np.argmin(bermi["nlls"])])}.npz')
         bmi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess={str(bmi["ess"][np.argmin(bmi["nlls"])])}.npz')
         ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=claude_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
-        mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')   
-        models = [bermi, bmi, ermi, mi]
-        subjects = [np.argmin(bermi['nlls']), np.argmin(bmi['nlls']), np.argmin(ermi['model_errors'].mean(1).squeeze()), np.argmin(mi['model_errors'].mean(1).squeeze())] # best parrticipant for each model
-        model_names =  ['BERMI', 'BMI', 'ERMI', 'MI']
+        rmf = np.load(f'{PARADIGM_PATH}/data/model_simulation/task={task_name}_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')   
+        models = [bermi, bmi, ermi, rmf]
+        subjects = [np.argmin(bermi['nlls']), np.argmin(bmi['nlls']), np.argmin(ermi['model_errors'].mean(1).squeeze()), np.argmin(rmf['model_errors'].mean(1).squeeze())] # best parrticipant for each model
+        model_names =  ['BERMI', 'BMI', 'ERMI', 'RMF']
     else:
-        models = [ermi, mi] 
-        subjects =  [np.argmin(ermi['model_errors'].mean(1).squeeze()), np.argmin(mi['model_errors'].mean(1).squeeze())]
-        model_names =  ['ERMI', 'MI']
+        models = [ermi, rmf] 
+        subjects =  [np.argmin(ermi['model_errors'].mean(1).squeeze()), np.argmin(rmf['model_errors'].mean(1).squeeze())]
+        model_names =  ['ERMI', 'RMF']
 
     num_functions = models[0]['human_preds'].shape[1]
     num_participants =  models[0]['model_preds'].shape[0]
     num_data = 20 if experiment_id == 1 or experiment_id == 3 else 5
     for (subject, model, model_name) in zip(subjects, models, model_names):
-        ref = mi if model_name == 'MI' else ermi if model_name == 'ERMI' else bmi if model_name == 'BMI' else bermi
+        ref = rmf if model_name == 'RMF' else ermi if model_name == 'ERMI' else bmi if model_name == 'BMI' else bermi
         sns.set(style="whitegrid")
         _, axs = plt.subplots(1, num_functions, figsize=(6*num_functions, 4))
         for function in range(num_functions):
@@ -708,3 +709,35 @@ def model_comparison_little2024(FIGSIZE=(5,5), experiment_id=1, bermi=False):
             plt.tight_layout()
             plt.show()
             plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}_model{model_name}_expid{experiment_id}.png', bbox_inches='tight')
+
+    for subject in subjects:
+        for function in range(num_functions):
+            _, axs = plt.subplots(1, 1, figsize=(6, 4))
+            for (model, model_name) in zip(models, model_names):
+                ref = rmf if model_name == 'RMF' else ermi if model_name == 'ERMI' else bmi if model_name == 'BMI' else bermi
+                sns.set(style="whitegrid")   
+                axs.scatter(ref['ground_truth_functions'][subject, function, :, 0], ref['ground_truth_functions'][subject, function, :, 1], c='black', label="Ground Truth")
+                
+                if function == 0:
+                    axs.set_xlabel('Input', fontsize=FONTSIZE)
+                    axs.set_ylabel('Target', fontsize=FONTSIZE)
+                    axs.legend(frameon=False, fontsize=FONTSIZE-4)
+
+                axs.tick_params(axis='both', which='major', labelsize=FONTSIZE-4)
+                axs.grid(visible=False)
+                sns.despine()
+                plt.tight_layout()
+                plt.show()
+                plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}_model{model_name}_expid{experiment_id}_{function}_gt.png', bbox_inches='tight')
+
+                if function == 0:
+                    axs.legend(frameon=False, fontsize=FONTSIZE-4)
+
+                axs.plot(ref['human_preds'][subject, function, :, 0], ref['human_preds'][subject, function, :, 1], c='green', lw=2, label='Human')
+                plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}_model{model_name}_expid{experiment_id}_{function}_gthuman.png', bbox_inches='tight')
+
+                if function == 0:
+                    axs.legend(frameon=False, fontsize=FONTSIZE-4)
+                
+                axs.plot(model['human_preds'][subject, function, :, 0], model['model_preds'].reshape(num_participants, num_functions, num_data)[subject, function], lw=2, label=model_name)
+                plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}_model{model_name}_expid{experiment_id}_{function}.png', bbox_inches='tight')
