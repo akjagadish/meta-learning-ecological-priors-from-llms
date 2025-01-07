@@ -506,8 +506,8 @@ def model_ginis_binz2022(pseudo=False, FIGSIZE=(8, 5)):
             bar.set_facecolor('#8b9da7')
     # Create custom legend handles
     import matplotlib.patches as mpatches
-    dark_patch = mpatches.Patch(color='#173b4f', label='Direction')
-    light_patch = mpatches.Patch(color='#8b9da7', label='Ranking')
+    dark_patch = mpatches.Patch(color='#173b4f', label='Ranking')
+    light_patch = mpatches.Patch(color='#8b9da7', label='Direction')
     middle_patch = mpatches.Patch(color='#5d7684', label='Unknown')
     # Add legend to the plot
     ax.legend(handles=[dark_patch, light_patch, middle_patch], fontsize=FONTSIZE-2, frameon=False)
@@ -521,7 +521,7 @@ def model_ginis_binz2022(pseudo=False, FIGSIZE=(8, 5)):
     plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_coefficients_{dim}_pseudo={pseudo}.png')
 
     
-def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE = (10,5)):
+def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE = (15,5)):
     
     data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
     num_participants = data.participant.nunique()
@@ -534,8 +534,12 @@ def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE 
     results_bmi = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=synthetic_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
     logprobs_bmi = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_bmli.pth', weights_only=False)[0]
     logprobs_baselines = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_fitted.pth', weights_only=False)[0]
+    logprobs_selection = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_selection_fitted.pth', weights_only=False)[0]
+    logprobs_feedforward = torch.load(f'{PARADIGM_PATH}/data/model_comparison/logprobs{experiment_id}_feedforward_fitted.pth', weights_only=False)[0]
     logprobs_bmi = torch.cat([logprobs_baselines[:, [0]], logprobs_bmi], dim=-1)
     best_logprobs, best_index = torch.max(logprobs_bmi, dim=-1)
+    logprobs_baselines[:, 0] = - 2 * logprobs_baselines[:, 0]
+    logprobs_baselines[:, 1:] = - 2 * logprobs_baselines[:, 1:] + 1*np.log(num_trials)
 
     # compute bic
     bermi_bic = (2*results_bermi['nlls'] + 2*np.log(num_trials)).sum()
@@ -544,6 +548,12 @@ def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE 
     mi_bic = (2*results_mi['nlls']+ 1*np.log(num_trials)).sum() 
     rnn_mi_bic = (-2*logprobs_bmi[:, 1] + 1*np.log(num_trials)).sum() 
     rnn_bmi_bic = (-2*best_logprobs + 2*np.log(num_trials)).sum()
+    guessing_bic = logprobs_baselines[:, 0].sum()
+    ideal_bic = logprobs_baselines[:, 1].sum()
+    equal_bic = logprobs_baselines[:, 2].sum()
+    single_bic = logprobs_baselines[:, 3].sum()
+    strategy_bic =  (- 2 * logprobs_selection + 1*np.log(num_trials)).sum()
+    feedforward_bic = (- 2 *  logprobs_feedforward  +  2 * np.log(num_trials)).sum()
     random_bic = -2*np.log(0.5)*num_trials*num_participants
     
     # experiment specific model fit results
@@ -579,9 +589,13 @@ def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE 
             models = ['BERMI', 'BMI', 'ERMI', 'MI']#,  'RNN_MI', 'RNN_BMI', 'random']
         else:
             # collect bics and model names
-            bics = [bmi_bic, ermi_bic, mi_bic]
-            models = ['BMI', 'ERMI', 'MI']
+            # bics = [bmi_bic, ermi_bic, mi_bic]
+            # models = ['BMI', 'ERMI', 'MI']
+            bics = [bmi_bic, ermi_bic, mi_bic, equal_bic, single_bic, feedforward_bic] #ideal_bic,  strategy_bic
+            models = [f'BMI', f'ERMI', f'MI', 'Equal Weighting', 'Single Cue', 'Feedforward Network']#'Ideal Observer',  'Strategy Selection',
 
+    # sort bics and models
+    bics, models = zip(*sorted(zip(bics, models)))
     colors = ['#173b4f', '#8b9da7', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(bics)]
     # compare mean BICS across models in a bar plot
     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
