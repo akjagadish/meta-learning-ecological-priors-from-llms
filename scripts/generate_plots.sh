@@ -36,6 +36,6 @@ pip install groupBMC==1.0
 pip3 install --user openai ipdb transformers tensorboard anthropic openml wordcloud mycolorpy Pillow
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-python decisionmaking/make_plots.py
-# python categorisation/make_plots.py
+# python decisionmaking/make_plots.py
+python categorisation/make_plots.py
 # python functionlearning/make_plots.py
