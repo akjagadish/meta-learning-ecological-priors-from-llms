@@ -172,7 +172,7 @@ def grid_search(args):
         task_features = {'model_max_steps': 300, 'state_dict': False}
     elif args.task_name == 'devraj2022':
         env = Devraj2022()
-        task_features = {'model_max_steps': 616, 'state_dict': False}
+        task_features = {'model_max_steps': 650, 'state_dict': False}
     elif args.task_name == 'binz2022':
         env = Binz2022(experiment_id=args.exp_id)
         task_features = {'model_max_steps': 10, 'state_dict': True}
@@ -227,7 +227,11 @@ def find_best_model_gs(args):
         bermi_esses = np.array([0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0])
         ermi_esses = np.array([0.0])
     elif args.task_name == 'devraj2022':
-       raise NotImplementedError
+        data = pd.read_csv(f'{PARADIGM_PATH}/data/human/devraj2022rational.csv')
+        data = data[data.condition=='control']
+        conditions = ['unknown']
+        bermi_esses = np.array([0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0])
+        ermi_esses = np.array([0.0])
     elif args.task_name == 'binz2022':
         data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{args.exp_id}.csv')
         conditions = ['unknown', 'rank', 'pseudoranked'] if args.exp_id == 1 else ['unknown', 'direction', 'pseudodirection'] if args.exp_id == 2 else ['unknown']
