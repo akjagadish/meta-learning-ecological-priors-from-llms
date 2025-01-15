@@ -18,7 +18,7 @@ from wordcloud import WordCloud
 FONTSIZE=20
 
 
-def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(5,5), task_name=None):
+def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), task_name=None):
     result = {}
     LogEvidence = np.stack(-bics/2)
     result = GroupBMC(LogEvidence).get_result()
@@ -26,7 +26,7 @@ def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(5,5), tas
     # rename models for plot
     
     if task_name == 'Badham et al. (2017)':
-        colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7']
+        colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7', '#c4d9c2']
     elif task_name == 'Devraj et al. (2022)':
         colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9']
     # sort result in descending order
@@ -72,13 +72,13 @@ def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(5,5), tas
     f.savefig(f'{SYS_PATH}/figures/posterior_model_frequency_{task_name}.svg', bbox_inches='tight', dpi=300)
     plt.show()
 
-def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(5,5), task_name=None):
+def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(7,5), task_name=None):
     result = {}
     LogEvidence = np.stack(-bics/2)
     result = GroupBMC(LogEvidence).get_result()
 
     # rename models for plot
-    colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2']
+    colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2', '#3b3b3b']
     # sort result in descending order
     sort_order = np.argsort(result.exceedance_probability)[::-1]
     result.exceedance_probability = result.exceedance_probability[sort_order]
@@ -114,8 +114,9 @@ def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(5,5), task_n
     f.savefig(f'{SYS_PATH}/figures/exceedance_probability_{task_name}.svg', bbox_inches='tight', dpi=300)
     plt.show()
     
-def model_comparison_badham2017(FIGSIZE=(6,5)):
+def model_comparison_badham2017(FIGSIZE=(7,5)):
     models = [
+              'task=badham2017_experiment=1_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5',\
               'badham2017_env=claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_soft_sigmoid_differential_evolution',\
               'badham2017_env=rmc_tasks_dim3_data100_tasks11499_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=1_rmc_soft_sigmoid_differential_evolution',
               'badham2017_llm_runs=1_iters=1_blocks=1_loss=nll',\
@@ -134,7 +135,7 @@ def model_comparison_badham2017(FIGSIZE=(6,5)):
     num_trials = NUM_TRIALs*NUM_TASKS
     # FONTSIZE = 16
     # MODELS = ['ERMI', 'RMC-MI', 'L-MI', 'PFN-MI', 'GCM', 'Rulex', 'Rule',  'PM']
-    MODELS = ['ERMI', 'RMC',  'LLM', 'MI', 'PFN', 'GCM', 'Rulex', 'Rule',  'PM']
+    MODELS = ['BERMI', 'ERMI', 'RMC',  'LLM', 'MI', 'PFN', 'GCM', 'Rulex', 'Rule',  'PM']
 
 
     for model_name in models:
@@ -146,6 +147,12 @@ def model_comparison_badham2017(FIGSIZE=(6,5)):
             pr2s_min_nll = np.array(pr2s).squeeze()
             fitted_betas.append(betas)
             num_parameters = 1 
+            bic = np.array(nlls_min_nlls)*2 + np.log(num_trials)*num_parameters
+        elif 'bounded' in model_name:
+            pnlls = fits['nlls']
+            nlls_min_nlls = np.array(pnlls).squeeze()
+            pr2s_min_nll = 0.
+            num_parameters = 2
             bic = np.array(nlls_min_nlls)*2 + np.log(num_trials)*num_parameters
         elif ('gcm' in model_name) or ('pm' in model_name):
             betas, pnlls, pr2s = fits['params'], fits['lls'], fits['r2s']
@@ -176,7 +183,7 @@ def model_comparison_badham2017(FIGSIZE=(6,5)):
     num_participants = len(nlls[0])
     MODELS = MODELS[:len(nlls)]
     # set colors depending on number of models in MODELS
-    colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(nlls)]
+    colors = ['#c4d9c2', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(nlls)]
 
 
     # compare mean nlls across models in a bar plot
@@ -241,20 +248,20 @@ def model_comparison_badham2017(FIGSIZE=(6,5)):
     f.savefig(f'{SYS_PATH}/figures/totalbic_badham2017.svg', bbox_inches='tight', dpi=300)
 
     # compare mean r2s across models in a bar plot
-    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
-    bar_positions = np.arange(len(r2s))*0.5
-    ax.bar(bar_positions, np.array(r2s).mean(1), color=colors, width=0.4)
-    ax.errorbar(bar_positions, np.array(r2s).mean(1), yerr=np.array(r2s).std(1)/np.sqrt(num_participants-1), c='k', lw=3, fmt="o")
-    ax.set_xlabel('Models', fontsize=FONTSIZE)
-    ax.set_ylabel('R2', fontsize=FONTSIZE)
-    ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
-    ax.set_xticklabels(MODELS, fontsize=FONTSIZE-5)  # Assign category names to x-tick labels
+    # f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    # bar_positions = np.arange(len(r2s))*0.5
+    # ax.bar(bar_positions, np.array(r2s).mean(1), color=colors, width=0.4)
+    # ax.errorbar(bar_positions, np.array(r2s).mean(1), yerr=np.array(r2s).std(1)/np.sqrt(num_participants-1), c='k', lw=3, fmt="o")
+    # ax.set_xlabel('Models', fontsize=FONTSIZE)
+    # ax.set_ylabel('R2', fontsize=FONTSIZE)
+    # ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
+    # ax.set_xticklabels(MODELS, fontsize=FONTSIZE-5)  # Assign category names to x-tick labels
 
-    # ax.set_title(f'Model comparison for  Badham et al. (2017)', fontsize=FONTSIZE)
-    plt.yticks(fontsize=FONTSIZE-2)
-    sns.despine()
-    f.tight_layout()
-    plt.show()   
+    # # ax.set_title(f'Model comparison for  Badham et al. (2017)', fontsize=FONTSIZE)
+    # plt.yticks(fontsize=FONTSIZE-2)
+    # sns.despine()
+    # f.tight_layout()
+    # plt.show()   
 
     task_name = 'Badham et al. (2017)'
     posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(7.5,5))

@@ -169,7 +169,7 @@ def grid_search(args):
     model_path = f"{SYS_PATH}/{args.paradigm}/trained_models/{args.model_name}.pt"
     if args.task_name == 'badham2017':
         env = Badham2017()
-        task_features = {'model_max_steps': 96, 'state_dict': False}
+        task_features = {'model_max_steps': 300, 'state_dict': False}
     elif args.task_name == 'devraj2022':
         env = Devraj2022()
         task_features = {'model_max_steps': 616, 'state_dict': False}
@@ -222,7 +222,10 @@ def grid_search(args):
 def find_best_model_gs(args):
 
     if args.task_name == 'badham2017':
-        raise NotImplementedError
+        data = pd.read_csv(f'{PARADIGM_PATH}/data/human/badham2017deficits.csv')
+        conditions = ['unknown']
+        bermi_esses = np.array([0.0, 0.5, 1., 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0])
+        ermi_esses = np.array([0.0])
     elif args.task_name == 'devraj2022':
        raise NotImplementedError
     elif args.task_name == 'binz2022':
@@ -243,7 +246,7 @@ def find_best_model_gs(args):
     else:
         raise NotImplementedError
     
-    sources = ['claude', 'synthetic']
+    sources = ['claude'] if args.paradigm=='categorisation' else ['claude', 'synthetic']
     for condition in conditions:
         for source in sources:
             if source == 'synthetic' and ('pseudo' in condition):
@@ -253,7 +256,7 @@ def find_best_model_gs(args):
                 fitted_nlls = np.zeros((len(esses), len(data.participant.unique())))
                 for idx, ess in enumerate(esses):
                     method = 'unbounded' if ess == 0 and len(esses)==1  else 'bounded'
-                    if args.paradigm == 'decisionmaking':
+                    if args.paradigm == 'decisionmaking' or args.paradigm == 'categorisation':
                         results = np.load(f'{PARADIGM_PATH}/data/model_comparison/task={args.task_name}_experiment={args.exp_id}_source={source}_condition={condition}_ess={str(float(ess))}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
                         fitted_beta[idx] = results['betas'][:, 0]
                         fitted_nlls[idx] = results['nlls']
@@ -265,7 +268,7 @@ def find_best_model_gs(args):
 
                 best_idx = np.argmin(fitted_nlls, axis=0)
                 best_ess = esses[best_idx]
-                best_beta = fitted_beta[best_idx, np.arange(len(data.participant.unique()))] if args.paradigm == 'decisionmaking' else np.zeros(data.participant.max()+1)
+                best_beta = fitted_beta[best_idx, np.arange(len(data.participant.unique()))] if args.paradigm == 'decisionmaking' or args.paradigm == 'categorisation' else np.zeros(data.participant.max()+1)
                 best_nlls = fitted_nlls.min(0)
                 np.savez(f"{PARADIGM_PATH}/data/model_comparison/{save_name}.npz", ess=best_ess, beta=best_beta, nlls=best_nlls)
 

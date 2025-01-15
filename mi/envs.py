@@ -1424,7 +1424,7 @@ class ShepardsTask(nn.Module):
     Categorisation task inspired by Shepard et al. (1961) for evaluating meta-learned model on six different difficulty levels of categorisation
     """
     
-    def __init__(self, task=None, max_steps=96, num_dims=3, batch_size=64, device='cpu', noise=0., shuffle_trials=False, return_prototype=False):
+    def __init__(self, task=None, max_steps=96, num_dims=3, batch_size=64, device='cpu', noise=0., shuffle_trials=False, return_prototype=False, sample_tasks=False):
         super(ShepardsTask, self).__init__()
         
         self.device = torch.device(device)
@@ -1436,15 +1436,17 @@ class ShepardsTask(nn.Module):
         self.shuffle_trials = shuffle_trials
         self.task_type = task
         self.return_prototype = return_prototype
+        self.sample_tasks = sample_tasks
 
-    def sample_batch(self, task_type=1):
+    def sample_batch(self, task_type=None, paired=False):
         task_type = self.task_type if self.task_type is not None else task_type
         stacked_task_features, stacked_targets, stacked_prototypes = self.generate_task(task_type)
         sequence_lengths = [len(data)for data in stacked_task_features]
         packed_inputs = rnn_utils.pad_sequence(stacked_task_features, batch_first=True)
+        padded_targets = rnn_utils.pad_sequence(stacked_targets, batch_first=True)
 
         if self.return_prototype:
-            return packed_inputs, sequence_lengths, stacked_targets, stacked_prototypes
+            return packed_inputs, sequence_lengths, padded_targets, padded_targets, stacked_prototypes, None
         else:
             return packed_inputs, sequence_lengths, stacked_targets
 
