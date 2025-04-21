@@ -21,6 +21,7 @@ from sklearn.preprocessing import PolynomialFeatures
 import statsmodels.api as sm
 import warnings
 from scipy.optimize import OptimizeWarning
+import math, time
 load_dotenv()
 SYS_PATH = getenv('BERMI_DIR')
 PARADIGM_PATH = f"{SYS_PATH}/functionlearning"
@@ -229,235 +230,432 @@ def proportion_function_types(mode, first=True):
 
     # set env_name and color_stats based on mode
     if mode == 0:
-        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2'
+        env_name = f'{PARADIGM_PATH}/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2.csv'
         color_stats = '#405A63'  # '#2F4A5A'# '#173b4f'
     elif mode == 1:  
-        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/synthetic_functionlearning_tasks_dim1_data25_tasks10000'
+        env_name = f'{PARADIGM_PATH}/data/generated_tasks/synthetic_functionlearning_tasks_dim1_data25_tasks10000.csv'
         color_stats = '#66828F'  # 5d7684'# '#5d7684'
     elif mode == 2: 
-        env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/real_data'
+        env_name = f'{PARADIGM_PATH}/data/generated_tasks/real_data_dim1_methodbest_lichtenberg2017.csv'
         color_stats = '#173b4f'  # '#0D2C3D' #'#8b9da7'
-
-    # Load the dataset
-    df = pd.read_csv(f'{env_name}.csv')
-    max_tasks = 5000 if mode == 0 or mode==1 else 750 #1000
+        
+    df = pd.read_csv(env_name)
+    first=True
+    max_tasks = 1000
     tasks = range(0, max_tasks) if first else np.random.choice(df.task_id.unique(), max_tasks, replace=False)
-    # Initialize a list to store model parameters
-    model_params_df = None
-    linear_model_params_df = None
-    if os.path.exists(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv'):
-        model_params_df = pd.read_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv')
-        linear_model_params_df = pd.read_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_linear_model_params_function_types_{str(mode)}.csv')
-        tasks = model_params_df['task_id'].unique()
-
     df = df[df['task_id'].isin(tasks)]
-    df['input'] = df['input'].apply(lambda x: eval(x)[0]) if mode == 0 or mode ==2 else df['input']
-    df['target'] = df['target'].apply(lambda x: eval(x)[0]) if mode == 2 else df['target']
-    # max normalize the input and target columns
-    df['input'] = df.groupby('task_id')['input'].transform(lambda x: x / x.max())
-    df['target'] = df.groupby('task_id')['target'].transform(lambda x: x / x.max())
-    # max-min normalize the inputs and targets
-    # df['input'] = df.groupby('task_id')['input'].transform(lambda x: (x - x.min())/(x.max() - x.min() + 1e-6))
-    # df['target'] = df.groupby('task_id')['target'].transform(lambda x: (x - x.min())/(x.max() - x.min() + 1e-6))
-    # standardize the inputs and targets
-    # df['input'] = df.groupby('task_id')['input'].transform(lambda x: (x - x.mean())/x.std())
-    # df['target'] = df.groupby('task_id')['target'].transform(lambda x: (x - x.mean())/x.std())
-    # remove task_ids containing nans for input or target
-    
 
-    # Define functions for cubic, quadratic, and exponential models
-    # def cubic_model(x, a, b, c, d):
-    #     return a * x**3 + b * x**2 + c * x + d
+    # parse single-element list strings
+    def parse_val(v):
+        try:
+            return eval(str(v))[0]
+        except:
+            return float(str(v).strip("[]"))
 
-    def periodic_model(x, a, b, d):
-        return a * np.sin(b * x) + d #a * np.sin(b * x + c) + d
+    df["input"] = df["input"].apply(parse_val)
+    df["target"] = df["target"].apply(parse_val)
 
-    def quadratic_model(x, a, b, c):
-        return a * x**2 + b * x + c
+    # per-task max-abs normalization
+    df["input"] = df.groupby("task_id")["input"].transform(lambda x: x / np.abs(x).max() if x.max()!=0 else x)
+    df["target"] = df.groupby("task_id")["target"].transform(lambda x: x / np.abs(x).max() if x.max()!=0 else x)
 
-    def exponential_model(x, a, b, c, d):
-        return a * np.exp(b * x + c) + d
-    
+    # 2. BIC helper
+    def bic(sse, n, k):
+        if sse <= 0 or n <= k:
+            return np.inf
+        return k*math.log(n) + n*math.log(sse/n)
+
+    # 3. Model definitions
     def linear_model(x, a, b):
-        return a * x + b
+        return a*x + b
 
-    # Calculate BIC
-    def calculate_bic(y, y_pred, num_params):
-        n = len(y)
-        mse = mean_squared_error(y, y_pred)
-        bic = n * np.log(mse) + num_params * np.log(n)
-        return bic
+    def quadratic_model(x, a, c):
+        return a*x**2 + c
 
+    def exponential_model(x, a, b, d):
+        return a * np.exp(b*x) + d
 
-    # Group by task_id and fit models for each task
-    if model_params_df is None and linear_model_params_df is None:
-        model_params = []
-        linear_model_params = []
-        for task_id, group in df.groupby('task_id'):
-            X = group['input'].values
-            y = group['target'].values
-            try:
-                # Fit linear model
-                # linear_model = LinearRegression()
-                # linear_model.fit(X.reshape(-1, 1), y)
-                # linear_bic = calculate_bic(y, linear_model.predict(X.reshape(-1, 1)), 2)
-                # Fit linear model
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("error", OptimizeWarning)
-                        popt_linear, _ = curve_fit(linear_model, X, y)
-                        linear_bic = calculate_bic(y, linear_model(X, *popt_linear), len(popt_linear))
-                except (ValueError, RuntimeError, OptimizeWarning) as e:
-                    print(f"Warning: {e}")
-                    linear_bic = float('inf')
+    def sine_model(x, a, b, d):
+        return a * np.sin(b*x) + d
 
-                # Fit quadratic model
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("error", OptimizeWarning)
-                        popt_quad, _ = curve_fit(quadratic_model, X, y)
-                        quad_bic = calculate_bic(y, quadratic_model(X, *popt_quad), len(popt_quad))
-                except (ValueError, RuntimeError, OptimizeWarning) as e:
-                    print(f"Warning: {e}")
-                    quad_bic = float('inf')
+    # 4. BIC calculators
+    def bic_linear(x, y):
+        try:
+            popt, _ = curve_fit(linear_model, x, y, p0=[1, 0], maxfev=2000)
+            sse = ((y - linear_model(x, *popt))**2).sum()
+            return bic(sse, len(x), 2), popt
+        except:
+            return np.inf, (np.nan, np.nan)
 
-                # Fit cubic model
-                # try:
-                #     with warnings.catch_warnings():
-                #         warnings.simplefilter("error", OptimizeWarning)
-                #         popt_cubic, _ = curve_fit(cubic_model, X, y)
-                #         cubic_bic = calculate_bic(y, cubic_model(X, *popt_cubic), len(popt_cubic))
-                # except (ValueError, RuntimeError, OptimizeWarning) as e:
-                #     print(f"Warning: {e}")
-                #     cubic_bic = float('inf')
+    def bic_quadratic(x, y):
+        try:
+            popt, _ = curve_fit(quadratic_model, x, y, p0=[1, 0], maxfev=2000)
+            sse = ((y - quadratic_model(x, *popt))**2).sum()
+            return bic(sse, len(x), 2), popt
+        except:
+            return np.inf, (np.nan, np.nan)
 
-                # Fit exponential model
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("error", OptimizeWarning)
-                        popt_exp, _ = curve_fit(exponential_model, X, y)
-                        exp_bic = calculate_bic(y, exponential_model(X, *popt_exp), len(popt_exp))
-                except (ValueError, RuntimeError, OptimizeWarning) as e:
-                    print(f"Warning: {e}")
-                    exp_bic = float('inf')
+    def bic_exponential(x, y):
+        try:
+            p0 = [(y.max()-y.min())/2, 1.0, y.min()]
+            bounds = ([-np.inf, 0, -np.inf], np.inf)
+            popt, _ = curve_fit(exponential_model, x, y, p0=p0, bounds=bounds, maxfev=5000)
+            sse = ((y - exponential_model(x, *popt))**2).sum()
+            return bic(sse, len(x), 3), popt
+        except:
+            return np.inf, (np.nan, np.nan, np.nan)
 
-                # Fit periodic model
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("error", OptimizeWarning)
-                        popt_periodic, _ = curve_fit(periodic_model, X, y)
-                        periodic_bic = calculate_bic(y, periodic_model(X, *popt_periodic), len(popt_periodic))
-                except (ValueError, RuntimeError, OptimizeWarning) as e:    
-                    print(f"Warning: {e}")
-                    periodic_bic = float('inf')
+    def bic_periodic(x, y):
+        try:
+            p0 = [(y.max()-y.min())/2, 2*np.pi, y.mean()]
+            bounds = ([-np.inf, 0, -np.inf], np.inf)
+            popt, _ = curve_fit(sine_model, x, y, p0=p0, bounds=bounds, maxfev=5000)
+            sse = ((y - sine_model(x, *popt))**2).sum()
+            return bic(sse, len(x), 3), popt
+        except:
+            return np.inf, (np.nan, np.nan, np.nan)
 
-                # Select the best model based on BIC
-                bics = {'linear': linear_bic,  'quadratic': quad_bic, 'exponential': exp_bic, 'periodic':periodic_bic} #  'cubic': cubic_bic}
-                if any([bic == float('inf') for bic in bics.values()]):             ## skip of any bic is inf
-                    continue
-                best_model = min(bics, key=bics.get)
-                if best_model == 'linear':
-                    params = {'model': 'linear', 'slope': popt_linear[0], 'intercept': popt_linear[1], 'bic': linear_bic}
-                elif best_model == 'quadratic':
-                    params = {'model': 'quadratic', 'a': popt_quad[0], 'b': popt_quad[1], 'c': popt_quad[2], 'bic': quad_bic}
-                # elif best_model == 'cubic':
-                #     params = {'model': 'cubic', 'a': popt_cubic[0], 'b': popt_cubic[1], 'c': popt_cubic[2], 'd': popt_cubic[3], 'bic': cubic_bic}
-                elif best_model == 'periodic':
-                    params = {'model': 'periodic', 'a': popt_periodic[0], 'b': popt_periodic[1], 'd': popt_periodic[2], 'bic': periodic_bic} #'b': popt_periodic[1], 'c': popt_periodic[2], 'd': popt_periodic[3],
-                elif best_model == 'exponential':
-                    params = {'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'd': popt_exp[3], 'bic': exp_bic}
-                params['task_id'] = task_id
-                model_params.append(params)
-                linear_model_params.append({'slope': popt_linear[0], 'intercept': popt_linear[1]})
+    bic_funcs = {
+        "linear": bic_linear,
+        "quadratic": bic_quadratic,
+        "exponential": bic_exponential,
+        "periodic": bic_periodic,
+    }
 
-                # Store the model parameters and BIC values for each task
-                # if any([bic == float('inf') for bic in bics.values()]):
-                #     continue
-                # # save all model params and bics
-                # linear_params = {'task_id': task_id, 'model': 'linear', 'slope': popt_linear[0], 'intercept': popt_linear[1], 'bic': linear_bic}
-                # quad_params = {'task_id': task_id, 'model': 'quadratic', 'a': popt_quad[0], 'b': popt_quad[1], 'c': popt_quad[2], 'bic': quad_bic}
-                # # cubic_params = {'task_id': task_id, 'model': 'cubic', 'a': popt_cubic[0], 'b': popt_cubic[1], 'c': popt_cubic[2], 'd': popt_cubic[3], 'bic': cubic_bic}
-                # periodic_params = {'task_id': task_id, 'model': 'periodic', 'a': popt_periodic[0], 'b': popt_periodic[1], 'c': popt_periodic[2], 'd': popt_periodic[3], 'bic': periodic_bic}
-                # exp_params = {'task_id': task_id, 'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'bic': exp_bic}
-                # model_params.append(linear_params)
-                # model_params.append(quad_params)
-                # # model_params.append(cubic_params)
-                # model_params.append(periodic_params)
-                # model_params.append(exp_params)
+    # 5. Evaluate all tasks
+    records = []
+    linear_coeffs = []
+    if os.path.exists(f"{PARADIGM_PATH}/data/stats/fitted_model_params_function_types_{str(mode)}.csv"):
+        model_df = pd.read_csv(f"{PARADIGM_PATH}/data/stats/fitted_model_params_function_types_{str(mode)}.csv")
+        linear_params = pd.read_csv(f"{PARADIGM_PATH}/data/stats/fitted_linear_model_params_function_types_{str(mode)}.csv")
+        records = model_df.values.tolist()
+        linear_coeffs = linear_params.values.tolist()
+    warnings.filterwarnings("ignore")
+    start = time.time()
+    if records == [] and linear_coeffs == []:
+        for tid, grp in df.groupby("task_id"):
+            x = grp["input"].values
+            y = grp["target"].values
+            if len(x) < 2:
+                continue
+            best_bic = np.inf
+            best_model = None
+            best_params = None
+            for name, fn in bic_funcs.items():
+                val, params = fn(x, y)
+                if val < best_bic:
+                    best_bic, best_model, best_params = val, name, params
+            if best_model is None:
+                continue
+            params = tuple(best_params)
+            # pad to length 3
+            if len(params) < 3:
+                params = params + tuple([np.nan]*(3-len(params)))
+            records.append((tid, best_model, best_bic, *params))
+            if best_model == "linear":
+                linear_coeffs.append(best_params)
+
+        elapsed = time.time() - start
+        print(f"Done: {len(records)} tasks in {elapsed:.1f}s")
+
+        # build DataFrame
+        cols = ["task_id", "model", "bic", "p1", "p2", "p3"]
+        model_df = pd.DataFrame(records, columns=cols)
+        model_df.to_csv(f"{PARADIGM_PATH}/data/stats/fitted_model_params_function_types_{str(mode)}.csv", index=False)
+        slopes=np.array([t[0] for t in linear_coeffs if not np.isnan(t[0])])
+        offs=np.array([t[1] for t in linear_coeffs if not np.isnan(t[1])])
+        slopes = slopes[~np.isnan(slopes)]
+        linear_params = pd.DataFrame({"slope": slopes, "offset": offs})
+        linear_params.to_csv(f"{PARADIGM_PATH}/data/stats/fitted_linear_model_params_function_types_{str(mode)}.csv", index=False)
+
+    # Settings
+    FONTSIZE=13
+    plt.rcParams.update({"font.size": FONTSIZE})
+    functions=["linear", "exponential", "quadratic", "periodic"]
+    colors=["#173b4f","#8b9da7",'#5d7684', '#c4d9c2'][:len(functions)]
+    props=model_df["model"].value_counts(normalize=True).reindex(functions,fill_value=0)
+    plt.figure(figsize=(6,4))
+    pos=np.arange(len(functions))*0.6
+    plt.bar(pos,props.values,color=colors,width=0.5)
+    plt.xticks(pos,functions,fontsize=FONTSIZE-2); plt.ylabel("Proportion"); 
+    # plt.title("Proportion of best models"); 
+    sns.despine(); plt.grid(False); plt.tight_layout(); plt.show()
+
+    # overlay plot
+    plt.figure(figsize=(6,4))
+    n_best=5
+    for idx, model in enumerate(functions):
+        top=model_df[model_df["model"]==model].nsmallest(n_best, "bic")
+        if mode == 0:
+            if model == 'linear':
+                top=model_df[model_df["model"]==model][47:53]
+            if model=='periodic':
+                top = model_df[model_df["model"]==model][5:10]
+            elif model == 'exponential':
+                top = model_df[model_df["model"]==model].loc[model_df[model_df["model"]==model]['p2'].sort_values()[-14:-10].index.values]
                 
-            except Exception as e:
-                print(e)
+        for tid in top["task_id"]:
+            g=df[df["task_id"]==tid]
+            xs=g["input"].values.astype(float); ys=g["target"].values.astype(float)
+            ord=np.argsort(xs); plt.plot(xs[ord],ys[ord],color=colors[idx],lw=2)
+            plt.xlabel("Normalised input"); plt.ylabel("Normalised target"); 
+            
+    # plt.title(f"Top‑{n_best} functions per model"); 
+    plt.grid(False);  sns.despine(); plt.tight_layout(); plt.show()
+    # linear coeffs plot
+    slopes = linear_params["slope"].values
+    offs = linear_params["offset"].values
+    means=[slopes.mean(),offs.mean()]; stds=[slopes.std(ddof=1)/np.sqrt(len(slopes)),offs.std(ddof=1)/np.sqrt(len(slopes))]
+    plt.figure(figsize=(6,4))
+    xp=np.arange(2)*0.6; plt.bar(xp,means,yerr=stds,width=0.5,color=colors[0],capsize=5)
+    plt.xticks(xp,["slope","offset"],fontsize=FONTSIZE-2)
+    plt.ylabel("Value (mean ± SEM)"); 
+    # plt.title("Linear coefficients"); 
+    plt.grid(False); sns.despine(); plt.tight_layout(); plt.show()
+        
+# def proportion_function_types(mode, first=True):
 
-        # Create a DataFrame from the model parameters
-        model_params_df = pd.DataFrame(model_params)
-        linear_model_params_df = pd.DataFrame(linear_model_params)
+#     # set env_name and color_stats based on mode
+#     if mode == 0:
+#         env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/claude_generated_functionlearningtasks_paramsNA_dim1_data20_tasks9991_run0_procid0_pversion2'
+#         color_stats = '#405A63'  # '#2F4A5A'# '#173b4f'
+#     elif mode == 1:  
+#         env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/synthetic_functionlearning_tasks_dim1_data25_tasks10000'
+#         color_stats = '#66828F'  # 5d7684'# '#5d7684'
+#     elif mode == 2: 
+#         env_name = f'{SYS_PATH}/functionlearning/data/generated_tasks/real_data'
+#         color_stats = '#173b4f'  # '#0D2C3D' #'#8b9da7'
 
-        # save
-        if not os.path.exists(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv'):
-            model_params_df.to_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv', index=False)
-            linear_model_params_df.to_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_linear_model_params_function_types_{str(mode)}.csv', index=False)
+#     # Load the dataset
+#     df = pd.read_csv(f'{env_name}.csv')
+#     max_tasks = 5000 if mode == 0 or mode==1 else 750 #1000
+#     tasks = range(0, max_tasks) if first else np.random.choice(df.task_id.unique(), max_tasks, replace=False)
+#     # Initialize a list to store model parameters
+#     model_params_df = None
+#     linear_model_params_df = None
+#     if os.path.exists(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv'):
+#         model_params_df = pd.read_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv')
+#         linear_model_params_df = pd.read_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_linear_model_params_function_types_{str(mode)}.csv')
+#         tasks = model_params_df['task_id'].unique()
+
+#     df = df[df['task_id'].isin(tasks)]
+#     df['input'] = df['input'].apply(lambda x: eval(x)[0]) if mode == 0 or mode ==2 else df['input']
+#     df['target'] = df['target'].apply(lambda x: eval(x)[0]) if mode == 2 else df['target']
+#     # max normalize the input and target columns
+#     # df['input'] = df.groupby('task_id')['input'].transform(lambda x: x / x.max())
+#     # df['target'] = df.groupby('task_id')['target'].transform(lambda x: x / x.max())
+#     df['input'] = df.groupby('task_id')['input'].transform(lambda x: x / np.abs(x).max() if x.max() != 0 else x)
+#     df['target'] = df.groupby('task_id')['target'].transform(lambda x: x / np.abs(x).max() if x.max() != 0 else x)
+#     # max-min normalize the inputs and targets
+#     # df['input'] = df.groupby('task_id')['input'].transform(lambda x: (x - x.min())/(x.max() - x.min() + 1e-6))
+#     # df['target'] = df.groupby('task_id')['target'].transform(lambda x: (x - x.min())/(x.max() - x.min() + 1e-6))
+#     # standardize the inputs and targets
+#     # df['input'] = df.groupby('task_id')['input'].transform(lambda x: (x - x.mean())/x.std())
+#     # df['target'] = df.groupby('task_id')['target'].transform(lambda x: (x - x.mean())/x.std())
+#     # remove task_ids containing nans for input or target
     
-    # model_bics = model_params_df.groupby('model')['bic'].sum()     # compute total bics for each model
-    # model_bics = model_bics.sort_values(ascending=True)     # sort the models based on the total bics
-    # fig, ax = plt.subplots(figsize=(10, 6))
-    # sns.barplot(x=model_bics.index, y=model_bics.values, palette=['blue', 'green', 'red', 'purple'], ax=ax)
-    # sns.despine()
-    # ax.set_ylabel('BIC', fontsize=FONTSIZE)
-    # ax.set_xlabel('Model', fontsize=FONTSIZE)
-    # ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
-    # plt.grid(visible=False)
-    # plt.show()
-    # plt.savefig(f'{SYS_PATH}/figures/functionlearning_totalbic_function_types_{str(mode)}.svg', bbox_inches='tight')
+
+#     # Define functions for cubic, quadratic, and exponential models
+#     # def cubic_model(x, a, b, c, d):
+#     #     return a * x**3 + b * x**2 + c * x + d
+
+#     def periodic_model(x, a, b, d):
+#         return a * np.sin(b * x) + d #a * np.sin(b * x + c) + d
+
+#     def quadratic_model(x, a, b, c):
+#         return a * x**2 + b * x + c
+
+#     def exponential_model(x, a, b, c, d):
+#         return a * np.exp(b * x + c) + d
+    
+#     def linear_model(x, a, b):
+#         return a * x + b
+
+#     # Calculate BIC
+#     def calculate_bic(y, y_pred, num_params):
+#         n = len(y)
+#         mse = mean_squared_error(y, y_pred)
+#         bic = n * np.log(mse) + num_params * np.log(n)
+#         return bic
 
 
-    # compute the the number of times bic of each model is the best for each task
-    # model_proportions = model_params_df.groupby('model')['bic'].idxmin().value_counts(normalize=True)
+#     # Group by task_id and fit models for each task
+#     if model_params_df is None and linear_model_params_df is None:
+#         model_params = []
+#         linear_model_params = []
+#         for task_id, group in df.groupby('task_id'):
+#             X = group['input'].values
+#             y = group['target'].values
+#             try:
+#                 # Fit linear model
+#                 # linear_model = LinearRegression()
+#                 # linear_model.fit(X.reshape(-1, 1), y)
+#                 # linear_bic = calculate_bic(y, linear_model.predict(X.reshape(-1, 1)), 2)
+#                 # Fit linear model
+#                 try:
+#                     with warnings.catch_warnings():
+#                         warnings.simplefilter("error", OptimizeWarning)
+#                         popt_linear, _ = curve_fit(linear_model, X, y, maxfev=10000)
+#                         linear_bic = calculate_bic(y, linear_model(X, *popt_linear), len(popt_linear))
+#                 except (ValueError, RuntimeError, OptimizeWarning) as e:
+#                     print(f"Warning: {e}")
+#                     linear_bic = float('inf')
 
-    sns.set(style="whitegrid")
-    # find number of times a model is in the dataset
-    model_proportions = model_params_df['model'].value_counts(normalize=True) 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x=model_proportions.index, y=model_proportions.values, ax=ax)
-    sns.despine()
-    ax.set_ylabel('Proportion', fontsize=FONTSIZE)
-    ax.set_xlabel('Model', fontsize=FONTSIZE)
-    # ax.set_title('Proportions of Different Models Being the Best Model', fontsize=FONTSIZE)
-    ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
-    plt.grid(visible=False)
-    plt.show()
-    plt.savefig(f'{SYS_PATH}/figures/functionlearning_proportion_function_types_{str(mode)}.png', bbox_inches='tight')
+#                 # Fit quadratic model
+#                 try:
+#                     with warnings.catch_warnings():
+#                         warnings.simplefilter("error", OptimizeWarning)
+#                         popt_quad, _ = curve_fit(quadratic_model, X, y)
+#                         quad_bic = calculate_bic(y, quadratic_model(X, *popt_quad), len(popt_quad))
+#                 except (ValueError, RuntimeError, OptimizeWarning) as e:
+#                     print(f"Warning: {e}")
+#                     quad_bic = float('inf')
 
-    # Create a bar plot for the fitted parameters of the linear model
-    linear_params_df = model_params_df[model_params_df['model'] == 'linear'] #linear_model_params_df #
-    fig, ax = plt.subplots(figsize=(10, 6))
-    proc_df = pd.DataFrame({'Slope': linear_params_df['slope'], 'Intercept': linear_params_df['intercept']})
-    sns.barplot(data=proc_df, capsize=.1, errorbar="se", ax=ax)
-    sns.despine()
-    ax.set_ylabel('Fitted parameters values', fontsize=FONTSIZE)
-    ax.set_xlabel('Parameter', fontsize=FONTSIZE)
-    ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
-    # ax.set_title('Fitted Parameters of the Linear Model', fontsize=FONTSIZE)
-    plt.grid(visible=False)
-    plt.show()
-    plt.savefig(f'{SYS_PATH}/figures/functionlearning_fitted_parameters_linear_model_{str(mode)}.png', bbox_inches='tight')
+#                 # Fit cubic model
+#                 # try:
+#                 #     with warnings.catch_warnings():
+#                 #         warnings.simplefilter("error", OptimizeWarning)
+#                 #         popt_cubic, _ = curve_fit(cubic_model, X, y)
+#                 #         cubic_bic = calculate_bic(y, cubic_model(X, *popt_cubic), len(popt_cubic))
+#                 # except (ValueError, RuntimeError, OptimizeWarning) as e:
+#                 #     print(f"Warning: {e}")
+#                 #     cubic_bic = float('inf')
 
-    # find top-3 functions from each model type based on the fitted bics and plot them as line plots
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for model in ['linear', 'quadratic',  'exponential']:#'cubic',
-        top_models = model_params_df[model_params_df['model'] == model].sort_values('bic').head(3)
-        for i, row in top_models.iterrows():
-            task_data = df[df['task_id'] == row['task_id']]
-            sns.lineplot(x=task_data['input'], y=task_data['target'], ax=ax)
-        sns.despine()
-        ax.set_ylabel('Target', fontsize=FONTSIZE)
-        ax.set_xlabel('Input', fontsize=FONTSIZE)
-    plt.xticks(fontsize=FONTSIZE-2)
-    plt.yticks(fontsize=FONTSIZE-2)
-    plt.title('Sampled functions', fontsize=FONTSIZE)
-    sns.despine()
-    plt.grid(visible=False)
-    plt.show()
-    plt.savefig(f'{SYS_PATH}/figures/functionlearning_top5functionspermodel_{str(mode)}.png', bbox_inches='tight')
+#                 # Fit exponential model
+#                 try:
+#                     with warnings.catch_warnings():
+#                         warnings.simplefilter("error", OptimizeWarning)
+#                         popt_exp, _ = curve_fit(exponential_model, X, y)
+#                         exp_bic = calculate_bic(y, exponential_model(X, *popt_exp), len(popt_exp))
+#                 except (ValueError, RuntimeError, OptimizeWarning) as e:
+#                     print(f"Warning: {e}")
+#                     exp_bic = float('inf')
+
+#                 # Fit periodic model
+#                 try:
+#                     with warnings.catch_warnings():
+#                         warnings.simplefilter("error", OptimizeWarning)
+#                         popt_periodic, _ = curve_fit(periodic_model, X, y)
+#                         periodic_bic = calculate_bic(y, periodic_model(X, *popt_periodic), len(popt_periodic))
+#                 except (ValueError, RuntimeError, OptimizeWarning) as e:    
+#                     print(f"Warning: {e}")
+#                     periodic_bic = float('inf')
+
+#                 # Select the best model based on BIC
+#                 bics = {'linear': linear_bic,  'quadratic': quad_bic, 'exponential': exp_bic, 'periodic':periodic_bic} #  'cubic': cubic_bic}
+#                 if any([bic == float('inf') for bic in bics.values()]):             ## skip of any bic is inf
+#                     continue
+#                 best_model = min(bics, key=bics.get)
+#                 if best_model == 'linear':
+#                     params = {'model': 'linear', 'slope': popt_linear[0], 'intercept': popt_linear[1], 'bic': linear_bic}
+#                 elif best_model == 'quadratic':
+#                     params = {'model': 'quadratic', 'a': popt_quad[0], 'b': popt_quad[1], 'c': popt_quad[2], 'bic': quad_bic}
+#                 # elif best_model == 'cubic':
+#                 #     params = {'model': 'cubic', 'a': popt_cubic[0], 'b': popt_cubic[1], 'c': popt_cubic[2], 'd': popt_cubic[3], 'bic': cubic_bic}
+#                 elif best_model == 'periodic':
+#                     params = {'model': 'periodic', 'a': popt_periodic[0], 'b': popt_periodic[1], 'd': popt_periodic[2], 'bic': periodic_bic} #'b': popt_periodic[1], 'c': popt_periodic[2], 'd': popt_periodic[3],
+#                 elif best_model == 'exponential':
+#                     params = {'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'd': popt_exp[3], 'bic': exp_bic}
+#                 params['task_id'] = task_id
+#                 model_params.append(params)
+#                 linear_model_params.append({'slope': popt_linear[0], 'intercept': popt_linear[1]})
+
+#                 # Store the model parameters and BIC values for each task
+#                 # if any([bic == float('inf') for bic in bics.values()]):
+#                 #     continue
+#                 # # save all model params and bics
+#                 # linear_params = {'task_id': task_id, 'model': 'linear', 'slope': popt_linear[0], 'intercept': popt_linear[1], 'bic': linear_bic}
+#                 # quad_params = {'task_id': task_id, 'model': 'quadratic', 'a': popt_quad[0], 'b': popt_quad[1], 'c': popt_quad[2], 'bic': quad_bic}
+#                 # # cubic_params = {'task_id': task_id, 'model': 'cubic', 'a': popt_cubic[0], 'b': popt_cubic[1], 'c': popt_cubic[2], 'd': popt_cubic[3], 'bic': cubic_bic}
+#                 # periodic_params = {'task_id': task_id, 'model': 'periodic', 'a': popt_periodic[0], 'b': popt_periodic[1], 'c': popt_periodic[2], 'd': popt_periodic[3], 'bic': periodic_bic}
+#                 # exp_params = {'task_id': task_id, 'model': 'exponential', 'a': popt_exp[0], 'b': popt_exp[1], 'c': popt_exp[2], 'bic': exp_bic}
+#                 # model_params.append(linear_params)
+#                 # model_params.append(quad_params)
+#                 # # model_params.append(cubic_params)
+#                 # model_params.append(periodic_params)
+#                 # model_params.append(exp_params)
+                
+#             except Exception as e:
+#                 print(e)
+
+#         # Create a DataFrame from the model parameters
+#         model_params_df = pd.DataFrame(model_params)
+#         linear_model_params_df = pd.DataFrame(linear_model_params)
+
+#         # save
+#         if not os.path.exists(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv'):
+#             model_params_df.to_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_model_params_function_types_{str(mode)}.csv', index=False)
+#             linear_model_params_df.to_csv(f'{SYS_PATH}/functionlearning/data/stats/fitted_linear_model_params_function_types_{str(mode)}.csv', index=False)
+    
+#     # model_bics = model_params_df.groupby('model')['bic'].sum()     # compute total bics for each model
+#     # model_bics = model_bics.sort_values(ascending=True)     # sort the models based on the total bics
+#     # fig, ax = plt.subplots(figsize=(10, 6))
+#     # sns.barplot(x=model_bics.index, y=model_bics.values, palette=['blue', 'green', 'red', 'purple'], ax=ax)
+#     # sns.despine()
+#     # ax.set_ylabel('BIC', fontsize=FONTSIZE)
+#     # ax.set_xlabel('Model', fontsize=FONTSIZE)
+#     # ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+#     # plt.grid(visible=False)
+#     # plt.show()
+#     # plt.savefig(f'{SYS_PATH}/figures/functionlearning_totalbic_function_types_{str(mode)}.svg', bbox_inches='tight')
+
+
+#     # compute the the number of times bic of each model is the best for each task
+#     # model_proportions = model_params_df.groupby('model')['bic'].idxmin().value_counts(normalize=True)
+
+#     # set colors depending on number of models in MODELS
+#     functions = ['linear', 'exponential', 'quadratic', 'periodic'] #, 'cubic']
+#     colors =['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2', '#3b3b3b', '#c4d9c2'][:len(functions)]
+    
+#     # sns.set(style="whitegrid")
+#     # find number of times a model is in the dataset
+#     model_proportions = model_params_df['model'].value_counts(normalize=True) 
+#     fig, ax = plt.subplots(figsize=(10, 6))
+#     # sns.barplot(x=model_proportions.index, y=model_proportions.values, ax=ax)
+#     bar_positions = np.arange(len(functions))*0.5
+#     ax.bar(bar_positions, model_proportions.values, color=colors, width=0.4)
+#     ax.set_xticks(bar_positions)
+#     ax.set_xticklabels(model_proportions.index, fontsize=FONTSIZE-2)
+#     sns.despine()
+#     ax.set_ylabel('Proportion', fontsize=FONTSIZE)
+#     ax.set_xlabel('Model', fontsize=FONTSIZE)
+#     # ax.set_title('Proportions of Different Models Being the Best Model', fontsize=FONTSIZE)
+#     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+#     plt.grid(visible=False)
+#     plt.show()
+#     plt.savefig(f'{SYS_PATH}/figures/functionlearning_proportion_function_types_{str(mode)}.png', bbox_inches='tight')
+
+#     # Create a bar plot for the fitted parameters of the linear model
+#     linear_params_df = model_params_df[model_params_df['model'] == 'linear'] #linear_model_params_df #
+#     fig, ax = plt.subplots(figsize=(10, 6))
+#     proc_df = pd.DataFrame({'Slope': linear_params_df['slope'], 'Intercept': linear_params_df['intercept']})
+#     sns.barplot(data=proc_df, capsize=.1, errorbar="se", ax=ax)
+#     sns.despine()
+#     ax.set_ylabel('Fitted parameters values', fontsize=FONTSIZE)
+#     ax.set_xlabel('Parameter', fontsize=FONTSIZE)
+#     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+#     # ax.set_title('Fitted Parameters of the Linear Model', fontsize=FONTSIZE)
+#     plt.grid(visible=False)
+#     plt.show()
+#     plt.savefig(f'{SYS_PATH}/figures/functionlearning_fitted_parameters_linear_model_{str(mode)}.png', bbox_inches='tight')
+
+#     # find top-3 functions from each model type based on the fitted bics and plot them as line plots
+#     fig, ax = plt.subplots(figsize=(10, 6))
+#     for model in functions:
+#         top_models = model_params_df[model_params_df['model'] == model].sort_values('bic').head(3)
+#         for i, row in top_models.iterrows():
+#             task_data = df[df['task_id'] == row['task_id']]
+#             ax.plot(task_data['input'], task_data['target'], color=colors[functions.index(model)], lw=2)
+#         sns.despine()
+#         ax.set_ylabel('Target', fontsize=FONTSIZE)
+#         ax.set_xlabel('Input', fontsize=FONTSIZE)
+#     plt.xticks(fontsize=FONTSIZE-2)
+#     plt.yticks(fontsize=FONTSIZE-2)
+#     plt.title('Sampled functions', fontsize=FONTSIZE)
+#     sns.despine()
+#     plt.grid(visible=False)
+#     plt.show()
+#     plt.savefig(f'{SYS_PATH}/figures/functionlearning_top5functionspermodel_{str(mode)}.png', bbox_inches='tight')
 
 def model_errors_function_types(FIGSIZE=(12, 6)):
     # Load the data
