@@ -93,3 +93,4 @@ if __name__ == '__main__':
 
     save_real_data(1, 'best', 25)
     save_real_data_lichtenberg2017(1, 'random', 25)
+    save_real_data_lichtenberg2017(1, 'best', 25)
