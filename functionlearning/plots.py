@@ -810,6 +810,8 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
     
     x = np.linspace(1., 101., 100)
     y = linear(x)
+    human_data = pd.read_csv(f'{PARADIGM_PATH}/data/human/kwantes2006extrapolation.csv')
+
     # y = y/250 - 0.5
     # x = x/100 - 0.5
 
@@ -825,7 +827,6 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
                 axs.scatter((row['Extrapolation_Input']+0.5)*100, (row['Extrapolation_Target']+0.5)*250, label=dataset, alpha=1.0, color='#5975a4ff' if dataset == "ERMI" else '#cc8963ff')
             axs.set_xlabel('Input', fontsize=FONTSIZE)
             axs.set_ylabel('Target', fontsize=FONTSIZE)
-            axs.legend(frameon=False, fontsize=FONTSIZE-2)
             axs.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
             # add vertical dotted line as a separator at x = -0.5 and x = 0.5
             # axs.axvline(x=-0.25, color='black', linestyle='--', alpha=0.5)
@@ -837,8 +838,10 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
                 axs.plot(x, y, label='Correct', color='black', linestyle='-')
                 plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_function={function}_model={dataset}_offset={str(offset)}.png', bbox_inches='tight')
             # plt.show()
+    axs.legend(frameon=False, fontsize=FONTSIZE-2)
     if model == 'both':
-        axs.plot(x, y, label='Correct', color='black', linestyle='-')
+        axs.plot(x, y, label='Correct', color='black', linestyle='--')
+        axs.scatter(human_data['x'], human_data['y'], label='Human', color='green', alpha=0.5)
         plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_function={function}_model={dataset}_offset={str(offset)}.png', bbox_inches='tight')
 
     # # Plot the per-trial MSE
