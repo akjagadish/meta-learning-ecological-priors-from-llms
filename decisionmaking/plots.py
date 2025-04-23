@@ -463,7 +463,7 @@ def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', c
         plt.show()
         plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_vs_trials_{source}_{condition}_exp{experiment_id}_ess{str(ess)}.png')
 
-def model_ginis_binz2022(pseudo=False, FIGSIZE=(8, 5)):
+def model_ginis_binz2022(pseudo=False, FIGSIZE=(6, 4)):
     # experiment_id=1
     # dim = 'dim2' if experiment_id == 3 else 'dim4'
     # conditions = ['ranked', 'unknown'] if experiment_id ==1 else ['direction', 'unknown'] if experiment_id == 2 else ['unknown']
@@ -515,13 +515,14 @@ def model_ginis_binz2022(pseudo=False, FIGSIZE=(8, 5)):
     ax.set_xticks([1.0, 3.0])
     ax.set_xticklabels(['ERMI', 'MI'], fontsize=FONTSIZE-2)
     plt.yticks(fontsize=FONTSIZE-2)
-    plt.ylabel('Gini Coefficient', fontsize=FONTSIZE)
+    # plt.ylabel('Gini Coefficient', fontsize=FONTSIZE)
+    plt.title(f'Gini Coefficient', fontsize=FONTSIZE)
     sns.despine()
-    plt.show()
     plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_coefficients_{dim}_pseudo={pseudo}.png')
+    plt.show()
 
     
-def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE = (15,5)):
+def model_comparison_binz2022(experiment_id, bermi=False, bmi=False, pseudo=False, FIGSIZE= (6,4)):
     
     data = pd.read_csv(f'{PARADIGM_PATH}/data/human/binz2022heuristics_exp{experiment_id}.csv')
     num_participants = data.participant.nunique()
@@ -542,19 +543,20 @@ def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE 
     logprobs_baselines[:, 1:] = - 2 * logprobs_baselines[:, 1:] + 1*np.log(num_trials)
 
     # compute bic
-    bermi_bic = (2*results_bermi['nlls'] + 2*np.log(num_trials)).sum()
-    bmi_bic = (2*results_bmi['nlls'] + 2*np.log(num_trials)).sum()
-    ermi_bic = (2*results_ermi['nlls'] + 1*np.log(num_trials)).sum()
-    mi_bic = (2*results_mi['nlls']+ 1*np.log(num_trials)).sum() 
-    rnn_mi_bic = (-2*logprobs_bmi[:, 1] + 1*np.log(num_trials)).sum() 
-    rnn_bmi_bic = (-2*best_logprobs + 2*np.log(num_trials)).sum()
-    guessing_bic = logprobs_baselines[:, 0].sum()
-    ideal_bic = logprobs_baselines[:, 1].sum()
-    equal_bic = logprobs_baselines[:, 2].sum()
-    single_bic = logprobs_baselines[:, 3].sum()
-    strategy_bic =  (- 2 * logprobs_selection + 1*np.log(num_trials)).sum()
-    feedforward_bic = (- 2 *  logprobs_feedforward  +  2 * np.log(num_trials)).sum()
-    random_bic = -2*np.log(0.5)*num_trials*num_participants
+    bermi_bic = (2*results_bermi['nlls'] + 2*np.log(num_trials))#.sum()
+    bmi_bic = (2*results_bmi['nlls'] + 2*np.log(num_trials))#.sum()
+    ermi_bic = (2*results_ermi['nlls'] + 1*np.log(num_trials))#.sum()
+    mi_bic = (2*results_mi['nlls']+ 1*np.log(num_trials))#.sum() 
+    rnn_mi_bic = (-2*logprobs_bmi[:, 1] + 1*np.log(num_trials))#.sum() 
+    rnn_bmi_bic = (-2*best_logprobs + 2*np.log(num_trials))#.sum()
+    guessing_bic = logprobs_baselines[:, 0]#.sum()
+    ideal_bic = logprobs_baselines[:, 1]#.sum()
+    equal_bic = logprobs_baselines[:, 2]#.sum()
+    single_bic = logprobs_baselines[:, 3]#.sum()
+    strategy_bic =  (- 2 * logprobs_selection + 1*np.log(num_trials))#.sum()
+    feedforward_bic = (- 2 *  logprobs_feedforward  +  2 * np.log(num_trials))#.sum()
+    random_bic_total = -2*np.log(0.5)*num_trials*num_participants
+    random_bic_per_participant = -2*np.log(0.5)*num_trials#*num_participants
     
     # experiment specific model fit results
     condition = 'ranked' if experiment_id == 1 else 'direction'
@@ -566,20 +568,24 @@ def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE 
         results_ermi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition={condition}_loss=nll_paired=True_method=unbounded_optimizer=grid_search_numiters=5.npz')
         results_bermi_condition = np.load(f'{PARADIGM_PATH}/data/model_comparison/task=binz2022_experiment={experiment_id}_source=claude_condition={condition}_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5.npz')
         
-        bermi_condition_bic = (2*results_bermi_condition['nlls'] + 2*np.log(num_trials)).sum()
-        bmi_condition_bic = (2*results_bmi_condition['nlls'] + 2*np.log(num_trials)).sum()
-        ermi_condition_bic = (2*results_ermi_condition['nlls'] + 1*np.log(num_trials)).sum()
-        mi_condition_bic = (2*results_mi_condition['nlls']+ 1*np.log(num_trials)).sum() 
+        bermi_condition_bic = (2*results_bermi_condition['nlls'] + 2*np.log(num_trials))#.sum()
+        bmi_condition_bic = (2*results_bmi_condition['nlls'] + 2*np.log(num_trials))#.sum()
+        ermi_condition_bic = (2*results_ermi_condition['nlls'] + 1*np.log(num_trials))#.sum()
+        mi_condition_bic = (2*results_mi_condition['nlls']+ 1*np.log(num_trials))#.sum() 
         abbr = 'R' if 'rank' in condition else 'D'
 
         # # collect bics and model names
         if bermi:
             bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic, bermi_condition_bic, bmi_condition_bic, ermi_condition_bic, mi_condition_bic]
             models = ['BERMI', 'BMI', 'ERMI', 'MI', f'BERMI-{abbr}', f'BMI-{abbr}', f'ERMI-{abbr}', f'MI-{abbr}']
-        else:
+        elif bmi:
             # collect bics and model names
             bics = [bmi_condition_bic, ermi_condition_bic, mi_condition_bic]
             models = [f'BMI', f'ERMI', f'MI']
+        else:
+            # collect bics and model names
+            bics = [ermi_condition_bic, mi_condition_bic]
+            models = [f'ERMI', f'MI']
 
     else:   
         
@@ -587,30 +593,137 @@ def model_comparison_binz2022(experiment_id, bermi=False, pseudo=False, FIGSIZE 
             # collect bics and model names
             bics = [bermi_bic, bmi_bic, ermi_bic, mi_bic]#, rnn_mi_bic, rnn_bmi_bic, random_bic]
             models = ['BERMI', 'BMI', 'ERMI', 'MI']#,  'RNN_MI', 'RNN_BMI', 'random']
+        elif bmi:
+            # collect bics and model names
+            # bics = [bmi_bic, ermi_bic, mi_bic]
+            # models = ['BMI', 'ERMI', 'MI']
+            bics = [ermi_bic, bmi_bic, mi_bic, equal_bic, single_bic, feedforward_bic] #ideal_bic,  strategy_bic
+            models = [f'ERMI', f'BMI', f'MI', 'Equal Weighting', 'Single Cue', 'Feedforward Network']#'Ideal Observer',  'Strategy Selection',
         else:
             # collect bics and model names
             # bics = [bmi_bic, ermi_bic, mi_bic]
             # models = ['BMI', 'ERMI', 'MI']
-            bics = [bmi_bic, ermi_bic, mi_bic, equal_bic, single_bic, feedforward_bic] #ideal_bic,  strategy_bic
-            models = [f'BMI', f'ERMI', f'MI', 'Equal Weighting', 'Single Cue', 'Feedforward Network']#'Ideal Observer',  'Strategy Selection',
-
+            bics = [ermi_bic, mi_bic, equal_bic, single_bic, feedforward_bic]#, ideal_bic,  strategy_bic]
+            # models = [f'ERMI', f'MI', 'Equal Weighting', 'Single Cue', 'Feedforward Network']#'Ideal Observer',  'Strategy Selection',
+            models = [f'ERMI', f'MI', 'EW', 'SC', 'NN']#, 'IO',  'SS']
+    
+    # apply .sum to all bics
+    total_bics = [bic.sum() for bic in bics]
     # sort bics and models
-    bics, models = zip(*sorted(zip(bics, models)))
+    total_bics, models = zip(*sorted(zip(total_bics, models)))
     colors = ['#173b4f', '#8b9da7', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(bics)]
     # compare mean BICS across models in a bar plot
     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
-    bar_positions = np.arange(len(bics))*1.5
-    ax.bar(bar_positions, np.array(bics), color=colors, width=1.)
+    bar_positions = np.arange(len(total_bics))*1.5
+    ax.bar(bar_positions, np.array(total_bics), color=colors, width=1.)
     ax.set_xlabel('Models', fontsize=FONTSIZE)
     ax.set_ylabel('BIC', fontsize=FONTSIZE)
     ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
     ax.set_xticklabels(models, fontsize=FONTSIZE-6)  # Assign category names to x-tick labels
     # ax.set_title(f'experiment {experiment_id}', fontsize=FONTSIZE)
-    ax.set_title(f'{"Ranking" if experiment_id == 1 else "Direction" if experiment_id == 2 else "Unknown (Dim=2)" if experiment_id == 3 else "Unknown (Dim=4)"}', fontsize=FONTSIZE)
-    ax.axhline(y=random_bic, color='red', linestyle='dotted', lw=3)
+    # ax.set_title(f'{"Ranking" if experiment_id == 1 else "Direction" if experiment_id == 2 else "Unknown (Dim=2)" if experiment_id == 3 else "Unknown (Dim=4)"}', fontsize=FONTSIZE)
+    ax.axhline(y=random_bic_total, color='red', linestyle='dotted', lw=3)
     plt.yticks(fontsize=FONTSIZE-2)
-    plt.ylim(min(bics)-100, random_bic+100)
+    plt.ylim(min(total_bics)-100, random_bic_total+100)
     sns.despine()
     f.tight_layout()
-    plt.show()
     plt.savefig(f'{SYS_PATH}/figures/binz2022_model_comparison_exp{experiment_id}.png')
+    plt.show()
+
+    # posteior model frequency
+    posterior_model_frequency(np.array(bics), models, horizontal=False, FIGSIZE=(6,4), task_name=f'Binz2022_exp{experiment_id}')
+    # exceedance probability
+    exceedance_probability(np.array(bics), models, horizontal=False, FIGSIZE=(6,4), task_name=f'Binz2022_exp{experiment_id}')
+    
+
+def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), task_name=None):
+    result = {}
+    LogEvidence = np.stack(-bics/2)
+    result = GroupBMC(LogEvidence).get_result()
+
+    # rename models for plot
+    colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7', '#c4d9c2'][:bics.shape[0]]
+    # sort result in descending order
+    sort_order = np.argsort(result.frequency_mean)[::-1]
+    result.frequency_mean = result.frequency_mean[sort_order]
+    result.frequency_var = result.frequency_var[sort_order]
+    models = np.array(models)[sort_order]
+    colors = np.array(colors)[sort_order]
+
+    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    
+    if horizontal:
+        # composed
+        ax.barh(np.arange(len(models)), result.frequency_mean, xerr=np.sqrt(result.frequency_var), align='center', color=colors, height=0.6)#, edgecolor='k')#, hatch='//', label='Compostional Subtask')
+        # plt.legend(fontsize=FONTSIZE-4, frameon=False)
+        ax.set_ylabel('Models', fontsize=FONTSIZE)
+        # ax.set_xlim(0, 0.7)
+        ax.set_xlabel('Posterior model frequency', fontsize=FONTSIZE) 
+        plt.yticks(ticks=np.arange(len(models)), labels=models, fontsize=FONTSIZE-2)
+        ax.set_xticks(np.arange(0, result.frequency_mean.max(), 0.1))
+        plt.xticks(fontsize=FONTSIZE-2)
+    else:
+        bar_positions = np.arange(len(result.frequency_mean))*0.5
+        ax.bar(bar_positions, result.frequency_mean, color=colors, width=0.4)
+        ax.errorbar(bar_positions, result.frequency_mean, yerr= np.sqrt(result.frequency_var), c='k', lw=3, fmt="o")
+        ax.set_xlabel('Models', fontsize=FONTSIZE)
+        ax.set_ylabel('Model frequency', fontsize=FONTSIZE)
+        ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
+        ax.set_xticklabels(models, fontsize=FONTSIZE-2)  # Assign category names to x-tick labels
+        plt.yticks(fontsize=FONTSIZE-2)
+        # start bar plot from 0
+        ax.set_ylim([-0.01, .9])
+        # y ticks at 0.1 interval
+        ax.set_yticks(np.arange(0.0, .90, 0.2))
+
+    ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
+    # print model names, mean frequencies and std error of mean frequencies
+    for i, model in enumerate(models):
+        print(f'{model}: {result.frequency_mean[i]} +- {np.sqrt(result.frequency_var[i])}')
+
+    sns.despine()
+    f.tight_layout()
+    f.savefig(f'{SYS_PATH}/figures/posterior_model_frequency_{task_name}.svg', bbox_inches='tight', dpi=300)
+    plt.show()
+
+def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(7,5), task_name=None):
+    result = {}
+    LogEvidence = np.stack(-bics/2)
+    result = GroupBMC(LogEvidence).get_result()
+
+    # rename models for plot
+    colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2', '#3b3b3b', '#c4d9c2'][:bics.shape[0]]
+    # sort result in descending order
+    sort_order = np.argsort(result.exceedance_probability)[::-1]
+    result.exceedance_probability = result.exceedance_probability[sort_order]
+    models = np.array(models)[sort_order]
+    colors = np.array(colors)[sort_order]
+
+    f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    if horizontal:
+        # composed
+        ax.barh(np.arange(len(models)), result.exceedance_probability, align='center', color=colors[:len(models)], height=0.6)#, hatch='//', label='Compostional Subtask')
+        # plt.legend(fontsize=FONTSIZE-4, frameon=False)
+        ax.set_ylabel('Models', fontsize=FONTSIZE)
+        # ax.set_xlim(0, 0.7)
+        ax.set_xlabel('Exceedance probability', fontsize=FONTSIZE) 
+        plt.yticks(ticks=np.arange(len(models)), labels=models, fontsize=FONTSIZE-3.)
+        # ax.set_xticks(np.arange(0, result.exceedance_probability.max(), 0.1))
+        plt.xticks(fontsize=FONTSIZE-4)
+    else:
+        # composed
+        bar_positions = np.arange(len(result.exceedance_probability))*0.5
+        ax.bar(bar_positions, result.exceedance_probability, color=colors, width=0.4)
+        # plt.legend(fontsize=FONTSIZE, frameon=False)
+        ax.set_xlabel('Models', fontsize=FONTSIZE)
+        # ax.set_ylim(0, 0.7)
+        ax.set_ylabel('Exceedance probability', fontsize=FONTSIZE) 
+        ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
+        ax.set_xticklabels(models, fontsize=FONTSIZE-2)  # Assign category names to x-tick labels
+        plt.yticks(fontsize=FONTSIZE-2)
+    
+    ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
+    sns.despine()
+    f.tight_layout()
+    f.savefig(f'{SYS_PATH}/figures/exceedance_probability_{task_name}.svg', bbox_inches='tight', dpi=300)
+    plt.show()
