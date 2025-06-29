@@ -463,7 +463,66 @@ def model_simulation_binz2022(experiment_id, source='claude', policy='greedy', c
         plt.show()
         plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_vs_trials_{source}_{condition}_exp{experiment_id}_ess{str(ess)}.png')
 
-def model_ginis_binz2022(pseudo=False, FIGSIZE=(6, 4)):
+# def model_ginis_binz2022(pseudo=False, FIGSIZE=(6, 4)):
+#     # experiment_id=1
+#     # dim = 'dim2' if experiment_id == 3 else 'dim4'
+#     # conditions = ['ranked', 'unknown'] if experiment_id ==1 else ['direction', 'unknown'] if experiment_id == 2 else ['unknown']
+#     dim = 'dim4'
+#     sources = ['claude', 'synthetic']
+#     conditions = ['ranked', 'direction', 'unknown']
+#     esses = [0.0]
+#     ginis = {}
+#     for source in sources:
+#         for condition in conditions:
+#             index = source + '_' + condition
+#             for ess in esses:
+#                 # ginis[source][condition][ess] = {}
+#                 assert ess == 0.0, 'ess must be 0.0'
+#                 condition = 'pseudo' + condition if pseudo and source=='claude' and condition != 'unknown' else condition                         
+#                 if source == 'claude':
+#                     model_coeffs = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess{str(float(ess))}_std0.1_run=0_essinit0.0_annealed_schedulefree_binz2022.npz')['model_coefficients']
+#                 elif source == 'synthetic':
+#                     model_coeffs = np.load(f'{PARADIGM_PATH}/data/model_simulation/env={source}_{dim}_{condition}_{dim}_model=transformer_num_episodes1000000_num_hidden=8_lr0.0003_num_layers=2_d_model=64_num_head=8_noise0.0_shuffleTrue_pairedTrue_lossnll_ess0.0_std0.1_run=0_{"ranking" if condition == "ranked" else "direction" if condition == "direction" else "unknown"}_essinit0.0_annealed_schedulefree_binz2022.npz')['model_coefficients']
+#                 gini_over_tasks = []
+#                 for task in range(model_coeffs.shape[1]):
+#                     gini_over_tasks.append(gini_compute(np.abs(model_coeffs[:, task, :].mean((0, 1)))))
+#                 #ginis[source][condition][ess] = gini_over_tasks
+#                 ginis[index] = np.array(gini_over_tasks)
+                                        
+#     # make a swarm plot of gini coefficients for each condition and source with points being different tasks
+#     gini_df = pd.DataFrame.from_dict(ginis)
+
+#     # swarm plot with bar plot for mean gini coefficients for each column
+#     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+#     sns.swarmplot(data=gini_df, ax=ax, color='black', alpha=0.5)
+#     sns.barplot(data=gini_df, ax=ax)
+#     # color first and third bar with darker shade and second and fourth bar with lighter shade
+#     for idx, bar in enumerate(ax.patches):
+#         if idx == 0 or idx == 3:
+#             bar.set_facecolor('#407193')
+#         if idx == 2 or idx == 5:
+#             bar.set_facecolor('#527489')
+#         elif idx == 1 or idx == 4:
+#             bar.set_facecolor('#747875')
+
+#     # Create custom legend handles
+#     import matplotlib.patches as mpatches
+#     dark_patch = mpatches.Patch(color='#407193', label='Ranking')
+#     light_patch = mpatches.Patch(color='#527489', label='Direction')
+#     middle_patch = mpatches.Patch(color='#747875', label='Unknown')
+#     # Add legend to the plot
+#     ax.legend(handles=[dark_patch, light_patch, middle_patch], fontsize=FONTSIZE-2, frameon=False)
+#     # Set custom x-ticks and labels
+#     ax.set_xticks([1.0, 3.0])
+#     ax.set_xticklabels(['ERMI', 'MI'], fontsize=FONTSIZE-2)
+#     plt.yticks(fontsize=FONTSIZE-2)
+#     # plt.ylabel('Gini Coefficient', fontsize=FONTSIZE)
+#     plt.title(f'Gini Coefficient', fontsize=FONTSIZE)
+#     sns.despine()
+#     plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_coefficients_{dim}_pseudo={pseudo}.png')
+#     plt.show()
+
+def model_ginis_binz2022(pseudo=False, FIGSIZE=(10, 4)):
     # experiment_id=1
     # dim = 'dim2' if experiment_id == 3 else 'dim4'
     # conditions = ['ranked', 'unknown'] if experiment_id ==1 else ['direction', 'unknown'] if experiment_id == 2 else ['unknown']
@@ -494,31 +553,68 @@ def model_ginis_binz2022(pseudo=False, FIGSIZE=(6, 4)):
 
     # swarm plot with bar plot for mean gini coefficients for each column
     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
-    sns.swarmplot(data=gini_df, ax=ax, color='black', alpha=0.5)
-    sns.barplot(data=gini_df, ax=ax)
-    # color first and third bar with darker shade and second and fourth bar with lighter shade
+    # sns.swarmplot(data=gini_df, ax=ax, color='black', alpha=0.5)
+    sns.barplot(data=gini_df, ax=ax, errorbar='se') 
+    
+    # Define base colors and patterns
+    ermi_base_color = '#407193'  # Blue for ERMI
+    mi_base_color = '#CA8243'    # Orange for MI
+    
+    # Different alpha levels for each condition (ranked=1.0, direction=0.7, unknown=0.4)
+    # alphas = [1.0, 1.0, 1.0] #[1.0, 0.7, 0.4]
+    alphas = [1.0, 0.7, 0.25]
+    
+    # Different patterns for each condition
+    patterns = ['','','']# ['///', '...', '|||']  # Ranked, Direction, Unknown
+    
+    # Color and pattern assignment
     for idx, bar in enumerate(ax.patches):
-        if idx == 0 or idx == 3:
-            bar.set_facecolor('#173b4f')
-        if idx == 2 or idx == 5:
-            bar.set_facecolor('#5d7684')
-        elif idx == 1 or idx == 4:
-            bar.set_facecolor('#8b9da7')
-    # Create custom legend handles
+        if idx in [0, 1, 2]:  # ERMI bars (claude)
+            condition_idx = idx  # 0=ranked, 1=direction, 2=unknown
+            bar.set_facecolor(ermi_base_color)
+            bar.set_alpha(alphas[condition_idx])
+            bar.set_hatch(patterns[condition_idx])
+            bar.set_edgecolor('white')
+            bar.set_linewidth(1)
+        elif idx in [3, 4, 5]:  # MI bars (synthetic)
+            condition_idx = idx - 3  # 0=ranked, 1=direction, 2=unknown
+            bar.set_facecolor(mi_base_color)
+            bar.set_alpha(alphas[condition_idx])
+            bar.set_hatch(patterns[condition_idx])
+            bar.set_edgecolor('white')
+            bar.set_linewidth(1)
+
+    # Create custom legend handles with alpha and patterns
     import matplotlib.patches as mpatches
-    dark_patch = mpatches.Patch(color='#173b4f', label='Ranking')
-    light_patch = mpatches.Patch(color='#8b9da7', label='Direction')
-    middle_patch = mpatches.Patch(color='#5d7684', label='Unknown')
+    
+    # ERMI legend patches
+    ermi_ranked_patch = mpatches.Patch(facecolor=ermi_base_color, alpha=alphas[0], 
+                                      hatch=patterns[0], edgecolor='white', label='ERMI-Ranked')
+    ermi_direction_patch = mpatches.Patch(facecolor=ermi_base_color, alpha=alphas[1], 
+                                         hatch=patterns[1], edgecolor='white', label='ERMI-Direction')
+    ermi_unknown_patch = mpatches.Patch(facecolor=ermi_base_color, alpha=alphas[2], 
+                                       hatch=patterns[2], edgecolor='white', label='ERMI-Unknown')
+    
+    # MI legend patches
+    mi_ranked_patch = mpatches.Patch(facecolor=mi_base_color, alpha=alphas[0], 
+                                    hatch=patterns[0], edgecolor='white', label='MI-Ranked')
+    mi_direction_patch = mpatches.Patch(facecolor=mi_base_color, alpha=alphas[1], 
+                                       hatch=patterns[1], edgecolor='white', label='MI-Direction')
+    mi_unknown_patch = mpatches.Patch(facecolor=mi_base_color, alpha=alphas[2], 
+                                     hatch=patterns[2], edgecolor='white', label='MI-Unknown')
+    
     # Add legend to the plot
-    ax.legend(handles=[dark_patch, light_patch, middle_patch], fontsize=FONTSIZE-2, frameon=False)
+    ermi_patch = mpatches.Patch(color='#407193', alpha=1.0, hatch='', edgecolor='white', label='ERMI')
+    mi_patch = mpatches.Patch(color='#CA8243', alpha=1.0, hatch='', edgecolor='white', label='MI')
+    ax.legend(handles=[ermi_patch, mi_patch], fontsize=FONTSIZE-2, frameon=False, loc='upper center', bbox_to_anchor=(0.1, 1.1), ncol=1)
     # Set custom x-ticks and labels
-    ax.set_xticks([1.0, 3.0])
-    ax.set_xticklabels(['ERMI', 'MI'], fontsize=FONTSIZE-2)
+    # ax.set_xticks([1.0, 4.0])
+    ax.set_xticklabels(['Ranking', 'Direction', 'Unknown', 'Ranking', 'Direction', 'Unknown'], fontsize=FONTSIZE-2)
     plt.yticks(fontsize=FONTSIZE-2)
-    # plt.ylabel('Gini Coefficient', fontsize=FONTSIZE)
-    plt.title(f'Gini Coefficient', fontsize=FONTSIZE)
+    plt.ylabel('Gini Coefficient', fontsize=FONTSIZE-2)
+    # plt.title(f'Gini Coefficient', fontsize=FONTSIZE)
     sns.despine()
-    plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_coefficients_{dim}_pseudo={pseudo}.png')
+    plt.savefig(f'{SYS_PATH}/figures/binz2022_gini_coefficients_{dim}_pseudo={pseudo}.svg', dpi=300, bbox_inches='tight')
     plt.show()
 
     
@@ -610,8 +706,10 @@ def model_comparison_binz2022(experiment_id, bermi=False, bmi=False, pseudo=Fals
     # apply .sum to all bics
     total_bics = [bic.sum() for bic in bics]
     # sort bics and models
-    total_bics, models = zip(*sorted(zip(total_bics, models)))
-    colors = ['#173b4f', '#8b9da7', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(bics)]
+    colors = ['#407193', '#CA8243','#505050','#505050', '#505050', '#505050', '#505050', '#505050', '#505050'][:len(bics)]
+    total_bics, models, colors = zip(*sorted(zip(total_bics, models, colors)))
+    # colors = ['#173b4f', '#8b9da7', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', "#161717", '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(bics)]
+    # colors = ['#173b4f', '#8b9da7', '#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2'][:len(bics)]
     # compare mean BICS across models in a bar plot
     f, ax = plt.subplots(1, 1, figsize=FIGSIZE)
     bar_positions = np.arange(len(total_bics))*1.5
@@ -627,22 +725,22 @@ def model_comparison_binz2022(experiment_id, bermi=False, bmi=False, pseudo=Fals
     plt.ylim(min(total_bics)-100, random_bic_total+100)
     sns.despine()
     f.tight_layout()
-    plt.savefig(f'{SYS_PATH}/figures/binz2022_model_comparison_exp{experiment_id}.png')
+    plt.savefig(f'{SYS_PATH}/figures/binz2022_model_comparison_exp{experiment_id}.svg')
     plt.show()
 
     # posteior model frequency
-    posterior_model_frequency(np.array(bics), models, horizontal=False, FIGSIZE=(6,4), task_name=f'Binz2022_exp{experiment_id}')
+    posterior_model_frequency(np.array(bics), models, colors, horizontal=False, FIGSIZE=(6,4), task_name=f'Binz2022_exp{experiment_id}')
     # exceedance probability
-    exceedance_probability(np.array(bics), models, horizontal=False, FIGSIZE=(6,4), task_name=f'Binz2022_exp{experiment_id}')
+    exceedance_probability(np.array(bics), models, colors, horizontal=False, FIGSIZE=(6,4), task_name=f'Binz2022_exp{experiment_id}')
     
 
-def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), task_name=None):
+def posterior_model_frequency(bics, models, colors, horizontal=False, FIGSIZE=(5,4), task_name=None):
     result = {}
     LogEvidence = np.stack(-bics/2)
     result = GroupBMC(LogEvidence).get_result()
-
     # rename models for plot
-    colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7', '#c4d9c2'][:bics.shape[0]]
+    # colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7', '#c4d9c2'][:bics.shape[0]]
+    # colors = ['#407193', '#CA8243','#505050','#505050', '#505050', '#505050', '#505050', '#505050', '#505050'][:bics.shape[0]]
     # sort result in descending order
     sort_order = np.argsort(result.frequency_mean)[::-1]
     result.frequency_mean = result.frequency_mean[sort_order]
@@ -663,20 +761,44 @@ def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), tas
         ax.set_xticks(np.arange(0, result.frequency_mean.max(), 0.1))
         plt.xticks(fontsize=FONTSIZE-2)
     else:
-        bar_positions = np.arange(len(result.frequency_mean))*0.5
-        ax.bar(bar_positions, result.frequency_mean, color=colors, width=0.4)
-        ax.errorbar(bar_positions, result.frequency_mean, yerr= np.sqrt(result.frequency_var), c='k', lw=3, fmt="o")
-        ax.set_xlabel('Models', fontsize=FONTSIZE)
-        ax.set_ylabel('Model frequency', fontsize=FONTSIZE)
-        ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
-        ax.set_xticklabels(models, fontsize=FONTSIZE-2)  # Assign category names to x-tick labels
+        # bar_positions = np.arange(len(result.frequency_mean))*0.5
+        # ax.bar(bar_positions, result.frequency_mean, color=colors, width=0.4)
+        # ax.errorbar(bar_positions, result.frequency_mean, yerr= np.sqrt(result.frequency_var), c='k', lw=3, fmt="o")
+        # ax.set_xlabel('Models', fontsize=FONTSIZE)
+        # ax.set_ylabel('Model frequency', fontsize=FONTSIZE)
+        # ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
+        # ax.set_xticklabels(models, fontsize=FONTSIZE-2)  # Assign category names to x-tick labels
+        # plt.yticks(fontsize=FONTSIZE-2)
+        # # start bar plot from 0
+        # ax.set_ylim([-0.01, .9])
+        # # y ticks at 0.1 interval
+        # ax.set_yticks(np.arange(0.0, .90, 0.2))
+        # Create a DataFrame for seaborn
+        # colors = assign_colors_by_model(models)
+        df_freq = pd.DataFrame({
+            'Models': models,
+            'frequency_mean': result.frequency_mean,
+            'frequency_var': result.frequency_var,
+            'colors': colors
+        })
+
+        # Create the barplot with error bars
+        sns.barplot(data=df_freq, x='Models', y='frequency_mean', palette=colors, ax=ax, errorbar=None)
+
+        # Add custom error bars
+        ax.errorbar(range(len(models)), result.frequency_mean, yerr=np.sqrt(result.frequency_var), 
+                c='k', lw=3, fmt="o", capsize=5)
+
+        ax.set_xlabel('', fontsize=FONTSIZE-2)
+        ax.set_ylabel('Model frequency', fontsize=FONTSIZE-2)
+        plt.xticks(fontsize=FONTSIZE-2)
         plt.yticks(fontsize=FONTSIZE-2)
         # start bar plot from 0
         ax.set_ylim([-0.01, .9])
         # y ticks at 0.1 interval
         ax.set_yticks(np.arange(0.0, .90, 0.2))
 
-    ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
+    # ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
     # print model names, mean frequencies and std error of mean frequencies
     for i, model in enumerate(models):
         print(f'{model}: {result.frequency_mean[i]} +- {np.sqrt(result.frequency_var[i])}')
@@ -686,13 +808,13 @@ def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), tas
     f.savefig(f'{SYS_PATH}/figures/posterior_model_frequency_{task_name}.svg', bbox_inches='tight', dpi=300)
     plt.show()
 
-def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(7,5), task_name=None):
+def exceedance_probability(bics, models, colors, horizontal=False, FIGSIZE=(7,5), task_name=None):
     result = {}
     LogEvidence = np.stack(-bics/2)
     result = GroupBMC(LogEvidence).get_result()
 
     # rename models for plot
-    colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2', '#3b3b3b', '#c4d9c2'][:bics.shape[0]]
+    # colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2', '#3b3b3b', '#c4d9c2'][:bics.shape[0]]
     # sort result in descending order
     sort_order = np.argsort(result.exceedance_probability)[::-1]
     result.exceedance_probability = result.exceedance_probability[sort_order]
@@ -715,14 +837,14 @@ def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(7,5), task_n
         bar_positions = np.arange(len(result.exceedance_probability))*0.5
         ax.bar(bar_positions, result.exceedance_probability, color=colors, width=0.4)
         # plt.legend(fontsize=FONTSIZE, frameon=False)
-        ax.set_xlabel('Models', fontsize=FONTSIZE)
+        # ax.set_xlabel('Models', fontsize=FONTSIZE)
         # ax.set_ylim(0, 0.7)
         ax.set_ylabel('Exceedance probability', fontsize=FONTSIZE) 
         ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
         ax.set_xticklabels(models, fontsize=FONTSIZE-2)  # Assign category names to x-tick labels
         plt.yticks(fontsize=FONTSIZE-2)
     
-    ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
+    # ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
     sns.despine()
     f.tight_layout()
     f.savefig(f'{SYS_PATH}/figures/exceedance_probability_{task_name}.svg', bbox_inches='tight', dpi=300)
