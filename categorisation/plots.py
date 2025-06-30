@@ -15,10 +15,11 @@ from groupBMC.groupBMC import GroupBMC
 import torch.nn.functional as F
 from collections import Counter
 from wordcloud import WordCloud
+from matplotlib.patches import Patch
 FONTSIZE=20
 
 
-def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), task_name=None):
+def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(6,4), task_name=None):
     result = {}
     LogEvidence = np.stack(-bics/2)
     result = GroupBMC(LogEvidence).get_result()
@@ -26,9 +27,11 @@ def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), tas
     # rename models for plot
     
     if task_name == 'Badham et al. (2017)':
-        colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7', '#c4d9c2']
+        colors = ['#407193','#505050',  '#CA8243','#505050', '#505050', '#505050', '#505050', '#505050', '#505050', '#505050']
+        #colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7', '#c4d9c2']
     elif task_name == 'Devraj et al. (2022)':
-        colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2']
+        # colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2']
+        colors = ['#407193', '#CA8243','#505050','#505050', '#505050', '#505050', '#505050', '#505050', '#505050','#505050']
     # sort result in descending order
     sort_order = np.argsort(result.frequency_mean)[::-1]
     result.frequency_mean = result.frequency_mean[sort_order]
@@ -49,20 +52,29 @@ def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(7,5), tas
         ax.set_xticks(np.arange(0, result.frequency_mean.max(), 0.1))
         plt.xticks(fontsize=FONTSIZE-2)
     else:
-        bar_positions = np.arange(len(result.frequency_mean))*0.5
-        ax.bar(bar_positions, result.frequency_mean, color=colors, width=0.4)
-        ax.errorbar(bar_positions, result.frequency_mean, yerr= np.sqrt(result.frequency_var), c='k', lw=3, fmt="o")
-        ax.set_xlabel('Models', fontsize=FONTSIZE)
-        ax.set_ylabel('Model frequency', fontsize=FONTSIZE)
-        ax.set_xticks(bar_positions)  # Set x-tick positions to bar_positions
-        ax.set_xticklabels(models, fontsize=FONTSIZE-2)  # Assign category names to x-tick labels
+        df_freq = pd.DataFrame({
+            'Models': models,
+            'frequency_mean': result.frequency_mean,
+            'frequency_var': result.frequency_var,
+            'colors': colors
+        })
+
+        # Create the barplot with error bars
+        sns.barplot(data=df_freq, x='Models', y='frequency_mean', palette=colors, ax=ax, errorbar=None)
+
+        # Add custom error bars
+        ax.errorbar(range(len(models)), result.frequency_mean, yerr=np.sqrt(result.frequency_var), 
+                c='k', lw=3, fmt="o", capsize=5)
+
+        ax.set_xlabel('Models', fontsize=FONTSIZE-2)
+        ax.set_ylabel('Model frequency', fontsize=FONTSIZE-2)
+        plt.xticks(fontsize=FONTSIZE-2)
         plt.yticks(fontsize=FONTSIZE-2)
-        # start bar plot from 0
         ax.set_ylim([-0.01, .55]) if task_name == 'Badham et al. (2017)' else ax.set_ylim([-0.01, .40])
-        # y ticks at 0.1 interval
         ax.set_yticks(np.arange(0.0, .65, 0.1)) if task_name == 'Badham et al. (2017)' else ax.set_yticks(np.arange(0.0, .50, 0.1))
 
-    ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
+
+    # ax.set_title(f'Model Comparison', fontsize=FONTSIZE)
     # print model names, mean frequencies and std error of mean frequencies
     for i, model in enumerate(models):
         print(f'{model}: {result.frequency_mean[i]} +- {np.sqrt(result.frequency_var[i])}')
@@ -116,14 +128,14 @@ def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(7,5), task_n
     
 def model_comparison_badham2017(FIGSIZE=(7,5)):
     models = [
-              'task=badham2017_experiment=1_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5',\
+            #   'task=badham2017_experiment=1_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5',\
               'badham2017_env=claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_soft_sigmoid_differential_evolution',\
               'badham2017_env=rmc_tasks_dim3_data100_tasks11499_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=1_rmc_soft_sigmoid_differential_evolution',
-              'badham2017_llm_runs=1_iters=1_blocks=1_loss=nll',\
+            #   'badham2017_llm_runs=1_iters=1_blocks=1_loss=nll',\
               'badham2017_env=dim3synthetic_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_syntheticnonlinear_soft_sigmoid_differential_evolution',\
               'badham2017_env=dim3synthetic_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_synthetic_soft_sigmoid_differential_evolution',\
               'badham2017_gcm_runs=1_iters=1_blocks=1_loss=nll',\
-              'badham2017_rulex_runs=1_iters=1_blocks=1_loss=nll_exception=True',\
+            #   'badham2017_rulex_runs=1_iters=1_blocks=1_loss=nll_exception=True',\
               'badham2017_rulex_runs=1_iters=1_blocks=1_loss=nll_exception=False',\
               'badham2017_pm_runs=1_iters=1_blocks=1_loss=nll',\
                 ]
@@ -135,7 +147,8 @@ def model_comparison_badham2017(FIGSIZE=(7,5)):
     num_trials = NUM_TRIALs*NUM_TASKS
     # FONTSIZE = 16
     # MODELS = ['ERMI', 'RMC-MI', 'L-MI', 'PFN-MI', 'GCM', 'Rulex', 'Rule',  'PM']
-    MODELS = ['BERMI', 'ERMI', 'RMC',  'LLM', 'MI', 'PFN', 'GCM', 'Rulex', 'Rule',  'PM']
+    # MODELS = ['BERMI', 'ERMI', 'RMC',  'LLM', 'MI', 'PFN', 'GCM', 'Rulex', 'Rule',  'PM']
+    MODELS = ['ERMI', 'RMC', 'MI', 'PFN', 'GCM', 'Rule',  'PM']# 'Rulex',
 
 
     for model_name in models:
@@ -264,18 +277,18 @@ def model_comparison_badham2017(FIGSIZE=(7,5)):
     # plt.show()   
 
     task_name = 'Badham et al. (2017)'
-    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(9,5))
-    exceedance_probability(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(9,5))
+    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
+    exceedance_probability(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
 
 def model_comparison_devraj2022(FIGSIZE=(6,5)):
-    models = ['task=devraj2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5',\
+    models = [#'task=devraj2022_experiment=1_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5',\
               'devraj2022_env=claude_generated_tasks_paramsNA_dim6_data500_tasks12910_pversion5_stage2_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=1_soft_sigmoid_differential_evolution', \
-              'devraj2022_llm_runs=1_iters=1_blocks=1_loss=nll', \
+            #   'devraj2022_llm_runs=1_iters=1_blocks=1_loss=nll', \
               'devraj2022_env=dim6synthetic_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=2_synthetic_soft_sigmoid_differential_evolution', \
               'devraj2022_env=dim6synthetic_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=2_syntheticnonlinear_soft_sigmoid_differential_evolution',\
               'devraj2022_gcm_runs=1_iters=1_blocks=1_loss=nll',\
               'devraj2022_pm_runs=1_iters=1_blocks=1_loss=nll',\
-              'devraj2022_rulex_runs=1_iters=1_blocks=1_loss=nll_exception=True', \
+            #   'devraj2022_rulex_runs=1_iters=1_blocks=1_loss=nll_exception=True', \
               'devraj2022_rulex_runs=1_iters=1_blocks=1_loss=nll_exception=False', 
          ]
     nlls,fitted_betas, r2s = [], [], []
@@ -285,7 +298,8 @@ def model_comparison_devraj2022(FIGSIZE=(6,5)):
     NUM_TRIALs = 616
     num_trials = NUM_TRIALs*NUM_TASKS
     # FONTSIZE = 16
-    MODELS = ['BERMI', 'ERMI', 'LLM', 'MI', 'PFN', 'GCM', 'PM', 'Rulex', 'Rule']
+    # MODELS = ['BERMI', 'ERMI', 'LLM', 'MI', 'PFN', 'GCM', 'PM', 'Rulex', 'Rule']
+    MODELS = ['ERMI', 'MI', 'PFN', 'GCM', 'PM', 'Rule'] #'Rulex', 
 
     for model_name in models:
         fits =  np.load(f'{SYS_PATH}/categorisation/data/model_comparison/{model_name}.npz')
@@ -410,14 +424,15 @@ def model_comparison_devraj2022(FIGSIZE=(6,5)):
     # plt.show() 
 
     task_name = 'Devraj et al. (2022)'
-    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(9,5))
-    exceedance_probability(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(9,5))
+    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
+    exceedance_probability(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
 
 def model_simulations_smith1998(plot='main'):
 
     models = ['smith1998', 'ermi', 'synthetic',] if plot == 'main' else ['smith1998', 'ermi', 'syntheticnonlinear']#'human'
-    f, ax = plt.subplots(1, len(models), figsize=(5*len(models),5))
-    colors = ['#173b4f', '#748995'] ##5d7684']
+    f, ax = plt.subplots(1, len(models), figsize=(6*len(models),4))
+    #colors = ['#173b4f', '#748995'] ##5d7684']
+    colors = ['#505050', '#407193',  '#CA8243']
     num_blocks = None
     for idx, model in enumerate(models):
         if model=='smith1998':
@@ -459,11 +474,11 @@ def model_simulations_smith1998(plot='main'):
         stds_pm = stds_pm[:num_blocks]
 
         # plot mean mses across participants for each trial segment for both models
-        sns.lineplot(x=np.arange(mses_pm.shape[1])+1, y=np.mean(mses_pm, axis=0), ax=ax[idx], color=colors[0], label='Protoype-based', lw=3)
-        sns.lineplot(x=np.arange(mses_pm.shape[1])+1, y=np.mean(mses_gcm, axis=0), ax=ax[idx], color=colors[1], label='Exemplar-based', lw=3)
+        sns.lineplot(x=np.arange(mses_pm.shape[1])+1, y=np.mean(mses_pm, axis=0), ax=ax[idx], color=colors[idx], label='Protoype-based', lw=3, alpha=0.5)
+        sns.lineplot(x=np.arange(mses_pm.shape[1])+1, y=np.mean(mses_gcm, axis=0), ax=ax[idx], color=colors[idx], label='Exemplar-based', lw=3, alpha=1.0)
         # add standard error of mean as error bars
-        ax[idx].fill_between(np.arange(mses_pm.shape[1])+1, np.mean(mses_pm, axis=0)-stds_pm, np.mean(mses_pm, axis=0)+stds_pm, alpha=0.2, color=colors[0])
-        ax[idx].fill_between(np.arange(mses_pm.shape[1])+1, np.mean(mses_gcm, axis=0)-stds_gcm, np.mean(mses_gcm, axis=0)+stds_gcm, alpha=0.2, color=colors[1])
+        ax[idx].fill_between(np.arange(mses_pm.shape[1])+1, np.mean(mses_pm, axis=0)-stds_pm, np.mean(mses_pm, axis=0)+stds_pm, alpha=0.1, color=colors[idx])
+        ax[idx].fill_between(np.arange(mses_pm.shape[1])+1, np.mean(mses_gcm, axis=0)-stds_gcm, np.mean(mses_gcm, axis=0)+stds_gcm, alpha=0.1, color=colors[idx])
         ax[idx].set_ylim([0, 1.])
         ax[idx].set_xticks(np.arange(mses_pm.shape[1])+1)
         # set y ticks font size
@@ -473,12 +488,12 @@ def model_simulations_smith1998(plot='main'):
             ax[idx].set_ylabel('Error', fontsize=FONTSIZE)
             # remove bounding box around the legend
             ax[idx].legend(frameon=False, fontsize=FONTSIZE-2)
-            ax[idx].set_title('Human', fontsize=FONTSIZE)
+            # ax[idx].set_title('Human', fontsize=FONTSIZE)
             ax[idx].set_xlabel('Block', fontsize=FONTSIZE) #Trial segment
-        elif idx==1:
-            ax[idx].set_title('ERMI', fontsize=FONTSIZE)
-        elif idx==2:
-            ax[idx].set_title('MI' if plot == "main" else 'PFN', fontsize=FONTSIZE)
+        # elif idx==1:
+        #     ax[idx].set_title('ERMI', fontsize=FONTSIZE)
+        # elif idx==2:
+        #     ax[idx].set_title('MI' if plot == "main" else 'PFN', fontsize=FONTSIZE)
         
         if idx!=0:
             # remove legend
@@ -540,8 +555,9 @@ def model_simulations_shepard1961(plot='main', num_blocks=15, tasks=np.arange(1,
     with open(f'{SYS_PATH}/categorisation/data/human/nosofsky1994.json') as json_file:
         data = json.load(json_file)
     # compare the error rate over trials between different tasks meaned over noise levels, shuffles and shuffle_evals
-    f, axes = plt.subplots(1, len(models), figsize=(6*len(models), 5))
-    colors = ['#E0E1DD', '#B6B9B9', '#8C9295', '#616A72','#37434E','#0D1B2A']
+    f, axes = plt.subplots(1, len(models), figsize=(6*len(models), 4))
+    # colors = ['#E0E1DD', '#B6B9B9', '#8C9295', '#616A72','#37434E','#0D1B2A']
+    colors = ['#505050', '#407193',  '#CA8243']
     # markers for the six types of rules in the plot: circle, cross, plus, inverted triangle, asterisk, triangle
     markers = ['o', 'x', '+', '*', 'v', '^']
 
@@ -560,14 +576,14 @@ def model_simulations_shepard1961(plot='main', num_blocks=15, tasks=np.arange(1,
         if models[idx]=='humans':
             assert idx==0, "Humans should be the first model"
             for i, rule in enumerate(data.keys()):
-                ax.plot(np.arange(len(data[rule]['y'][:num_blocks]))+1, data[rule]['y'][:num_blocks], label=f'Type {i+1}', lw=3, color=colors[i], marker=markers[i], markersize=8)
+                ax.plot(np.arange(len(data[rule]['y'][:num_blocks]))+1, data[rule]['y'][:num_blocks], label=f'Type {i+1}', lw=3, color=colors[idx], alpha=((i+1)/len(data.keys())), marker=markers[i], markersize=8)
                 print(f'Humans mean error: {np.mean(data[rule]["y"][:num_blocks], axis=0)}')
             if idx==0:
                 ax.set_title('Human', fontsize=FONTSIZE)
         else:
             for t_idx, task in enumerate(tasks):
                 block_errors = errors[idx, t_idx]         
-                ax.plot(np.arange(1, num_blocks+1), block_errors, label=f'Type {task}', lw=3, color=colors[t_idx], marker=markers[t_idx], markersize=8)
+                ax.plot(np.arange(1, num_blocks+1), block_errors, label=f'Type {task}', lw=3, color=colors[idx], marker=markers[t_idx],  alpha=((t_idx+1)/len(tasks)),  markersize=8)
             model_name = 'ermi' if 'claude' in models[idx] else 'rmc' if 'rmc' in models[idx] else 'pfn' if 'synthetic_nonlinear' in models[idx] else 'mi'if 'synthetic' in models[idx] else 'LLM'
             if model_name=='ermi':
                 ax.set_title('ERMI', fontsize=FONTSIZE)
@@ -652,11 +668,11 @@ def model_comparison_johanssen2002(plot='main', task_block=32):
     # compare the meta_learner_generalisation with human_generalisation in two subplots side by side
     fig, ax = plt.subplots(1, 3, figsize=(5*3, 5))
     # plot the human_generalisation in the left subplot
-    human_generalisation.plot(kind='bar', ax=ax[0], color='#173B4F', width=0.8)
+    human_generalisation.plot(kind='bar', ax=ax[0], color='#505050', width=0.8)
     # plot the meta_learner_generalisation in the right subplot
-    ermi_meta_learner_generalisation.plot(kind='bar', ax=ax[1], color='#405A63', width=0.8)
+    ermi_meta_learner_generalisation.plot(kind='bar', ax=ax[1], color='#407193', width=0.8)
     if plot == 'main':
-        mi_meta_learner_generalisation.plot(kind='bar', ax=ax[2], color='#66828F', width=0.8)
+        mi_meta_learner_generalisation.plot(kind='bar', ax=ax[2], color='#CA8243', width=0.8)
     else:
         pfn_meta_learner_generalisation.plot(kind='bar', ax=ax[2], color='#66828F', width=0.8)
 
@@ -706,6 +722,268 @@ def model_comparison_johanssen2002(plot='main', task_block=32):
     sns.despine()
     plt.show()
     fig.savefig(f'{SYS_PATH}/figures/model_comparison_johanssen2002.svg', bbox_inches='tight', dpi=300)
+
+
+def model_comparison_johanssen2002(plot="main", task_block=32):
+    """Compare human generalisation with ERMI and MI (or PFN) in *one* bar plot.
+
+    Parameters
+    ----------
+    plot : {'main', 'alt'}
+        'main' ➜ ERMI vs. MI / 'any other' ➜ ERMI vs. PFN.
+    task_block : int
+        Identifier for the task feature block (default = 32).
+    """
+
+    # ----------------------------------------------------------
+    # Helper → fetch beta and read CSVs for the three sources
+    # ----------------------------------------------------------
+    def load_transfer_df(beta_path_tmpl, csv_tmpl):
+        beta = np.load(beta_path_tmpl.format(tb=task_block))
+        df = pd.read_csv(csv_tmpl.format(beta=beta, tb=task_block))
+        # keep only transfer stimuli for the requested task block
+        ids = df[df["stimulus_id"].str.contains("T")]["stimulus_id"]
+        df = df[df["stimulus_id"].isin(ids) & (df["task_feature"] == task_block)]
+        return df
+
+    # Paths ----------------------------------------------------
+    ermi_beta_p = f"{SYS_PATH}/categorisation/data/meta_learner/johanssen_categorisation_ermi_{task_block}_best_beta.npy"
+    mi_beta_p   = f"{SYS_PATH}/categorisation/data/meta_learner/johanssen_categorisation_mi_{task_block}_best_beta.npy"
+    pfn_beta_p  = f"{SYS_PATH}/categorisation/data/meta_learner/johanssen_categorisation_pfn_{task_block}_best_beta.npy"
+
+    ermi_csv = (f"{SYS_PATH}/categorisation/data/meta_learner/"
+                "johanssen_categorisation__tasks8950_pversion5_stage1_model=transformer_"
+                "num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_"
+                "num_head=8_noise0.0_shuffleTrue_run=1_beta={beta}_num_trials=288_num_runs=1.csv")
+
+    mi_csv = (f"{SYS_PATH}/categorisation/data/meta_learner/"
+              "johanssen_categorisation_500000_num_hidden=256_lr0.0003_num_layers=6_"
+              "d_model=64_num_head=8_noise0.0_shuffleTrue_run=1_synthetic_beta={beta}_num_trials=288_num_runs=1.csv")
+
+    pfn_csv = (f"{SYS_PATH}/categorisation/data/meta_learner/"
+               "johanssen_categorisation_500000_num_hidden=256_lr0.0003_num_layers=6_"
+               "d_model=64_num_head=8_noise0.0_shuffleTrue_run=1_syntheticnonlinear_beta={beta}_num_trials=288_num_runs=1.csv")
+
+    ermi_df = load_transfer_df(ermi_beta_p, ermi_csv)
+    mi_df   = load_transfer_df(mi_beta_p, mi_csv)
+    pfn_df  = load_transfer_df(pfn_beta_p, pfn_csv)
+
+    # ----------------------------------------------------------
+    # Human data
+    # ----------------------------------------------------------
+    with open(f"{SYS_PATH}/categorisation/data/human/johanssen2002.json") as f:
+        human_raw = json.load(f)
+    human_df = pd.DataFrame({"stimulus_id": human_raw["x"], "prob_A": human_raw["y"]})
+    human_df = human_df[human_df["stimulus_id"].str.contains("T")]
+
+    # ----------------------------------------------------------
+    # Compute mean p(A) for each stimulus across runs
+    # ----------------------------------------------------------
+    def compute_model_mean(df):
+        return 1 - df.groupby("stimulus_id")["choice"].mean()
+
+    human_series = human_df.set_index("stimulus_id")["prob_A"]
+    ermi_series  = compute_model_mean(ermi_df)
+    mi_series    = compute_model_mean(mi_df)
+    pfn_series   = compute_model_mean(pfn_df)
+
+    # Align order with ascending human generalisation (as in original paper)
+    order = human_series.sort_values().index
+    human_series = human_series[order]
+    ermi_series  = ermi_series[order]
+    mi_series    = mi_series[order]
+    pfn_series   = pfn_series[order]
+
+    # ----------------------------------------------------------
+    # One‑hot labels for x‑ticks
+    # ----------------------------------------------------------
+    one_hot_map = {
+        "T1": "1 0 1 1", "T2": "1 0 1 0", "T3": "0 1 1 1",
+        "T4": "1 1 0 1", "T5": "1 1 0 0", "T6": "0 1 1 0", "T7": "0 0 0 0",
+    }
+    x_labels = [f'T{i+1}' for i in range(len(human_series))] #[one_hot_map[t] for t in order]
+
+    # ----------------------------------------------------------
+    # Build tidy DataFrame for seaborn
+    # ----------------------------------------------------------
+    model_to_series = {
+        "Human": human_series,
+        "ERMI": ermi_series,
+        "MI": mi_series,
+        "PFN": pfn_series,
+    }
+    if plot == "main":
+        selected_models = ["Human", "ERMI", "MI"]
+    else:
+        selected_models = ["Human", "ERMI", "PFN"]
+
+    df_plot = pd.concat([
+        pd.DataFrame({"stimulus": x_labels, "prob_A": model_to_series[m].values, "model": m})
+        for m in selected_models
+    ])
+
+    # ----------------------------------------------------------
+    # Plot with seaborn
+    # ----------------------------------------------------------
+    # sns.set_theme("whitegrid", rc={"axes.facecolor": "#F9F9F9"})
+    palette = ["#505050", "#407193", "#CA8243"] if plot == "main" else ["#505050", "#407193", "#66828F"]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    sns.barplot(data=df_plot, x="stimulus", y="prob_A", hue="model", palette=palette, ax=ax, width=0.8, edgecolor="black")
+
+    # Reference line & aesthetics
+    ax.axhline(0.5, ls="--", c="black", lw=1)
+    ax.set_xlabel("Generalisation stimulus", fontsize=FONTSIZE)#, weight="bold")
+    ax.set_ylabel("p(A)", fontsize=FONTSIZE)#, weight="bold")
+    ax.set_yticks(np.arange(0, 1.1, 0.2))
+    ax.tick_params(axis="both", labelsize=FONTSIZE-2)
+    ax.set_ylim(0, 1.05)
+    ax.get_legend().remove()
+    # ax.legend(title="Model", fontsize=FONTSIZE - 1, title_fontsize=FONTSIZE)
+    sns.despine(ax=ax)
+    fig.tight_layout()
+
+    out_path = f"{SYS_PATH}/figures/model_comparison_johanssen2002_merged_{plot}.svg"
+    fig.savefig(out_path, dpi=300, bbox_inches="tight")
+    plt.show()
+    sns.reset_defaults()
+    return out_path
+
+def compare_data_statistics(modes):
+    """Visualise four statistics for two datasets side‑by‑side with split violins.
+
+    Parameters
+    ----------
+    modes : list[int]
+        Exactly two integer codes identifying the data sources to compare.
+        Accepted values are 0, 1, 2, 3 (see mapping below).
+    """
+
+    if len(modes) != 2:
+        raise ValueError("This function expects *exactly* two modes to create a split violin plot.")
+
+    # --------------------------------------------------------
+    # 1. Metadata (file paths, colours, labels)
+    # --------------------------------------------------------
+    names_for_modes = {
+        0: {
+            "label": "LLM",
+            "path": f"{SYS_PATH}/categorisation/data/generated_tasks/claude_generated_tasks_paramsNA_dim4_data650_tasks8950_pversion5_stage1",
+            "colour": "#407193",
+        },
+        1: {
+            "label": "MI",
+            "path": f"{SYS_PATH}/categorisation/data/reference_tasks/linear_data",
+            "colour": "#CA8243",
+        },
+        2: {
+            "label": "Real",
+            "path": f"{SYS_PATH}/categorisation/data/reference_tasks/real_data",
+            "colour": "#CA8243",
+        },
+        3: {
+            "label": "PFN",
+            "path": f"{SYS_PATH}/categorisation/data/generated_tasks/synthetic_tasks_dim4_data650_tasks1000_nonlinearTrue",
+            "colour": "#505050",
+        },
+    }
+
+    # Resolve the meta information for the selected modes
+    meta = [names_for_modes[m] for m in modes]
+
+    # --------------------------------------------------------
+    # 2. Collect the statistics
+    # --------------------------------------------------------
+    all_data = {0: [], 1: [], 2: [], 3: []}  # four stats × two modes
+
+    for idx, mode in enumerate(modes):
+        stats_path = f"{SYS_PATH}/categorisation/data/stats/stats_{mode}.npz"
+        if not os.path.exists(stats_path):
+            raise FileNotFoundError(f"Statistics not computed for mode {mode} – expected file {stats_path}")
+
+        stats = np.load(stats_path, allow_pickle=True)
+        # Each of these is already a 1‑D array except `all_features_with_norm`, which
+        # is (#tasks, #dims). Flatten to 1‑D so seaborn can plot a distribution.
+        all_data[0].append(stats["all_features_with_norm"].ravel())
+        all_data[1].append(stats["all_corr"].ravel())
+        all_data[2].append(stats["gini_coeff"].ravel())
+        all_data[3].append(stats["posterior_logprob"].ravel())
+
+    # --------------------------------------------------------
+    # 3. Plot setup
+    # --------------------------------------------------------
+    # sns.set_theme("whitegrid", rc={"axes.facecolor": "#F9F9F9"})
+    palette = [meta[0]["colour"], meta[1]["colour"]]
+
+    fig, axs = plt.subplots(1, 4, figsize=(4 * 6, 4), sharey=False)
+
+    titles = ["Input features", "Input correlation", "Sparsity", "Linearity"]
+    xlabels = ["Normalised value", "Pearson r", "Gini coefficient", "Posterior probability"]
+    ylims = [(0, 1), (-1, 1), (0, 0.8), (0, 1)]
+
+    # --------------------------------------------------------
+    # 4. Create one split violin per statistic
+    # --------------------------------------------------------
+    for stat_idx, ax in enumerate(axs):
+        # Build a tidy DataFrame for seaborn
+        df_plot = pd.DataFrame({
+            "value": np.concatenate([all_data[stat_idx][0], all_data[stat_idx][1]]),
+            "group": np.repeat([meta[0]["label"], meta[1]["label"]],
+                                 [len(all_data[stat_idx][0]), len(all_data[stat_idx][1])]),
+            "stat": titles[stat_idx],
+        })
+
+        sns.violinplot(
+            data=df_plot,
+            x="stat",            # constant, so all violins share the same x pos
+            y="value",
+            hue="group",
+            split=True,
+            inner="box",
+            palette=palette,
+            saturation=0.9,
+            linewidth=1.2,
+            ax=ax,
+        )
+
+        # Aesthetics ---------------------------------------------------------
+        ax.set_xlabel(xlabels[stat_idx], fontsize=FONTSIZE + 2)#, weight="bold")
+        # ax.set_title(titles[stat_idx], fontsize=FONTSIZE + 2, pad=14)
+        ax.set_ylim(*ylims[stat_idx])
+        ax.set_xticks([])            # Remove redundant x‑tick (title already states the stat)
+        ax.tick_params(axis="y", labelsize=FONTSIZE)
+        sns.despine(ax=ax, left=False, bottom=True)
+        ax.get_legend().remove()
+
+        if stat_idx == 0:
+            ax.set_ylabel("Density", fontsize=FONTSIZE)#, weight="bold")
+        else:
+            ax.set_ylabel("")
+
+    # --------------------------------------------------------
+    # 5. Single legend above all subplots
+    # --------------------------------------------------------
+    legend_elements = [Patch(facecolor=palette[0], edgecolor="white", label=meta[0]["label"]),
+                       Patch(facecolor=palette[1], edgecolor="white", label=meta[1]["label"])]
+    fig.legend(handles=legend_elements,
+               ncol=2,
+               loc="upper center",
+               bbox_to_anchor=(0.5, 1.1),
+               frameon=False,
+               fontsize=FONTSIZE)
+
+    fig.tight_layout()
+    plt.subplots_adjust(top=0.85)
+
+    # Optional: save figure --------------------------------------------------
+    out_path = f"{SYS_PATH}/figures/compare_stats_split_violin_{modes[0]}_{modes[1]}.svg"
+    fig.savefig(out_path, bbox_inches="tight", dpi=300)
+    plt.show()
+
+    # Reset seaborn to default state so the style does not bleed into other plots
+    sns.reset_defaults()
+
+    return out_path
 
 
 def plot_dataset_statistics(mode=0):
@@ -800,16 +1078,16 @@ def plot_dataset_statistics(mode=0):
 
     # set env_name and color_stats based on mode
     if mode == 0:
-        env_name = f'{SYS_PATH}/categorisation/data/claude_generated_tasks_paramsNA_dim4_data650_tasks8950_pversion5_stage1'
+        env_name = f'{SYS_PATH}/categorisation/data/generated_tasks/claude_generated_tasks_paramsNA_dim4_data650_tasks8950_pversion5_stage1'
         color_stats = '#405A63' #'#2F4A5A'# '#173b4f'
     elif mode == 1: #last plot
-        env_name = f'{SYS_PATH}/categorisation/data/linear_data'
+        env_name = f'{SYS_PATH}/categorisation/data/reference_tasks/linear_data'
         color_stats = '#66828F' #5d7684'# '#5d7684'
     elif mode == 2: #first plot
-        env_name = f'{SYS_PATH}/categorisation/data/real_data'
+        env_name = f'{SYS_PATH}/categorisation/data/reference_tasks/real_data'
         color_stats = '#173b4f'#'#0D2C3D' #'#8b9da7'
     elif mode == 3:
-        env_name = f'{SYS_PATH}/categorisation/data/synthetic_tasks_dim4_data650_tasks1000_nonlinearTrue'
+        env_name = f'{SYS_PATH}/categorisation/data/generated_tasks/synthetic_tasks_dim4_data650_tasks1000_nonlinearTrue'
         color_stats = '#5d7684'
 
     # load data
@@ -977,23 +1255,22 @@ def compare_data_statistics(modes):
     names_for_modes = ['ecological_valid_data', 'MI', 'real_world_data', 'PFN']
     for mode in modes:
         if mode == 0:
-            env_name = f'{SYS_PATH}/categorisation/data/claude_generated_tasks_paramsNA_dim4_data650_tasks8950_pversion5_stage1'
+            env_name = f'{SYS_PATH}/categorisation/data/generated_tasks/claude_generated_tasks_paramsNA_dim4_data650_tasks8950_pversion5_stage1'
             color_stats = '#ff7f0e' #'#405A63' #'#2F4A5A'# '#173b4f'
             labels.append('LLM-generated tasks')
         elif mode == 1: #last plot
-            env_name = f'{SYS_PATH}/categorisation/data/linear_data'
+            env_name = f'{SYS_PATH}/categorisation/data/reference_tasks/linear_data'
             color_stats = '#2ca02c' #66828F' #5d7684'# '#5d7684'
             labels.append('MI')
         elif mode == 2: #first plot
-            env_name = f'{SYS_PATH}/categorisation/data/real_data'
+            env_name = f'{SYS_PATH}/categorisation/data/reference_tasks/real_data'
             color_stats = '#1f77b4' #173b4f'#'#0D2C3D' #'#8b9da7'
             labels.append('Real-world classification tasks')
         elif mode == 3:
-            env_name = f'{SYS_PATH}/categorisation/data/synthetic_tasks_dim4_data650_tasks1000_nonlinearTrue'
+            env_name = f'{SYS_PATH}/categorisation/data/generated_tasks/synthetic_tasks_dim4_data650_tasks1000_nonlinearTrue'
             color_stats = '#d62728'#5d7684'
             labels.append('PFN')
 
-        # load data
         data = pd.read_csv(f'{env_name}.csv')
         data = data.groupby(['task_id']).filter(lambda x: len(x['target'].unique()) == 2) # check if data has only two values for target in each task
         data.input = data['input'].apply(lambda x: np.array(eval(x)))
