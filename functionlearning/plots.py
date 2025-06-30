@@ -369,7 +369,7 @@ def proportion_function_types(mode, first=True):
         linear_params.to_csv(f"{PARADIGM_PATH}/data/stats/fitted_linear_model_params_function_types_{str(mode)}.csv", index=False)
 
     # Settings
-    FONTSIZE=13
+    FONTSIZE=20
     plt.rcParams.update({"font.size": FONTSIZE})
     functions=["linear", "exponential", "quadratic", "periodic"]
     if mode == 0:
@@ -578,7 +578,7 @@ def proportion_function_types_two_modes_plotlib(modes=[0, 2], first=True):
         })
 
     # Settings
-    FONTSIZE=13
+    FONTSIZE=20
     plt.rcParams.update({"font.size": FONTSIZE})
     functions=["linear", "exponential", "quadratic", "periodic"]
     function_names=["Linear", "Exponential", "Quadratic", "Periodic"]
@@ -834,7 +834,7 @@ def proportion_function_types_two_modes(modes=[0, 2], first=True):
         })
 
     # Settings
-    FONTSIZE = 13
+    FONTSIZE = 20
 
     functions = ["linear", "exponential", "quadratic", "periodic"]
     function_names = ["Linear", "Exponential", "Quadratic", "Periodic"]
@@ -860,12 +860,13 @@ def proportion_function_types_two_modes(modes=[0, 2], first=True):
     proportion_df = pd.DataFrame(proportion_data)
     
     # Create side-by-side bar plot using seaborn
-    plt.figure(figsize=(6, 4))
+    plt.figure(figsize=(9, 4))
     ax = sns.barplot(data=proportion_df, x='Function', y='Proportion', hue='Dataset', 
                      palette=['#407193', '#CA8243'], alpha=1.0)
     
     # Customize the plot
-    ax.set_xlabel('Function Type', fontsize=FONTSIZE)
+    # ax.set_xlabel('Function Type', fontsize=FONTSIZE)
+    ax.set_xlabel('', fontsize=FONTSIZE)
     ax.set_ylabel('Proportion', fontsize=FONTSIZE)
     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
     
@@ -1001,8 +1002,8 @@ def proportion_function_types_two_modes(modes=[0, 2], first=True):
     
     # Create the bar plot with error bars using seaborn
     ax = sns.barplot(data=coeff_df, x='Parameter', y='Value', hue='Dataset',
-                     palette=['#407193', '#CA8243'], capsize=0.05, 
-                     errorbar='se', alpha=1.0)
+                     palette=['#407193', '#CA8243'], capsize=0.1, 
+                     errorbar='se')
     
     # Customize the plot
     ax.set_xlabel('Parameter', fontsize=FONTSIZE)
@@ -1267,7 +1268,7 @@ def proportion_function_types_two_modes(modes=[0, 2], first=True):
 #     plt.show()
 #     plt.savefig(f'{SYS_PATH}/figures/functionlearning_top5functionspermodel_{str(mode)}.png', bbox_inches='tight')
 
-def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=13):
+def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
     # Load the data
     results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy.npz')
                         #  task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
@@ -1320,7 +1321,7 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=13):
 
     # Plot the combined data
     # sns.set(style="whitegrid")
-    fig, ax = plt.subplots(1, 1, figsize=FIGSIZE)
+    fig, ax = plt.subplots(1, 1, figsize=(9,4))
     if model == 'both':
         # Create side-by-side bars for both datasets using seaborn
         ax = sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', 
@@ -1335,10 +1336,10 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=13):
     
     sns.despine()
     ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
-    # ax.set_xlabel('Function', fontsize=FONTSIZE)
+    ax.set_xlabel('', fontsize=FONTSIZE)
     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
     plt.grid(visible=False)
-    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_error_function_types_{model}.svg', bbox_inches='tight')
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_error_function_types_{model}.svg', bbox_inches='tight', dpi=300)
     plt.show()
     
     if model == 'both':
@@ -1358,10 +1359,10 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=13):
             ax.legend(frameon=False, fontsize=FONTSIZE-2)
             plt.grid(visible=False)
             sns.despine()
-            plt.savefig(f'{SYS_PATH}/figures/functionlearning_per_trial_mse_function_types_{dataset}.svg', bbox_inches='tight')
+            plt.savefig(f'{SYS_PATH}/figures/functionlearning_per_trial_mse_function_types_{dataset}.svg', bbox_inches='tight', dpi=300)
             plt.show()
 
-def model_errors_function_types_plotlib(model='ermi', FIGSIZE=(6, 4), FONTSIZE=13):
+def model_errors_function_types_plotlib(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
     # Load the data
     results_mi = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy.npz')
                         #  task=evaluatefunctionlearning_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_policy=greedy_ess=0.0.npz')
@@ -1472,7 +1473,7 @@ def model_errors_function_types_plotlib(model='ermi', FIGSIZE=(6, 4), FONTSIZE=1
             plt.savefig(f'{SYS_PATH}/figures/functionlearning_per_trial_mse_function_types_{dataset}.svg', bbox_inches='tight')
             plt.show()
 
-def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, FONTSIZE=13):
+def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, FONTSIZE=20):
     # load model
     if offset:
         results_ermi = np.load(f'{PARADIGM_PATH}/data/model_simulation/env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_kwantes2006.npz')
@@ -1602,7 +1603,7 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
         ax.set_xticklabels('', fontsize=FONTSIZE)
         ax.tick_params(axis='both', which='major', labelsize=FONTSIZE+10)
         plt.grid(visible=False)
-        plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_mse_function_types_offset={str(offset)}.svg', bbox_inches='tight')
+        plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_mse_function_types_offset={str(offset)}.svg', bbox_inches='tight', dpi=300)
         plt.show()
 
         
@@ -1710,7 +1711,7 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
 #                 plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}_model{model_name}_expid{experiment_id}_{function}.svg', bbox_inches='tight')
   
  
-# def model_comparison_little2024_pltlib(plot_model='together', FIGSIZE=(6,4), experiment_id=1, bermi=False, FONTSIZE=13):
+# def model_comparison_little2024_pltlib(plot_model='together', FIGSIZE=(6,4), experiment_id=1, bermi=False, FONTSIZE=20):
 #     task_name = 'little2022'
 #     if bermi:
 #         rmf = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_method=unbounded.npz')
@@ -1825,7 +1826,7 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
 #     #             axs.plot(model['human_preds'][subject, function, :, 0], model['model_preds'].reshape(num_participants, num_functions, num_data)[subject, function], lw=2, label=model_name)
 #     #             plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_functions_subject{subject}_model{model_name}_expid{experiment_id}_{function}.svg', bbox_inches='tight')
 
-def model_comparison_little2024(plot_model='together', FIGSIZE=(6,4), experiment_id=1, bermi=False, FONTSIZE=13):
+def model_comparison_little2024(plot_model='together', FIGSIZE=(6,4), experiment_id=1, bermi=False, FONTSIZE=20):
     task_name = 'little2022'
     if bermi:
         rmf = np.load(f'{PARADIGM_PATH}/data/model_simulation/task=little2022_experiment=1_source=synthetic_condition=unknown_loss=nll_paired=False_method=unbounded.npz')
@@ -1947,7 +1948,7 @@ def model_comparison_little2024(plot_model='together', FIGSIZE=(6,4), experiment
         # Clear the current figure to avoid memory issues
         plt.clf()
 
-def interpolation_and_extrapolation_little2024(FIGSIZE=(6,4), experiment_ids=[1,3], FONTSIZE=13):
+def interpolation_and_extrapolation_little2024(FIGSIZE=(6,4), experiment_ids=[1,3], FONTSIZE=20):
     # Collect data for both experiments
     all_data = []
     
@@ -1979,15 +1980,16 @@ def interpolation_and_extrapolation_little2024(FIGSIZE=(6,4), experiment_ids=[1,
     
     df_combined = pd.DataFrame(all_data)
     
-    fig, ax = plt.subplots(figsize=FIGSIZE)
+    fig, ax = plt.subplots(figsize=(9,4))
     sns.barplot(data=df_combined, x='Experiment', y='MSE', hue='Model', 
-                capsize=.1, errorbar="se", ax=ax, palette=['#ca8243', '#407193'])
+                capsize=.1, errorbar="se", ax=ax, palette=['#407193', '#ca8243',])
     
     sns.despine()
     ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
+    ax.set_xlabel('', fontsize=FONTSIZE)
     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
     ax.legend(frameon=False, fontsize=FONTSIZE-2)
-    ax.get_legend().remove()
     plt.grid(visible=False)
-    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_combined.svg', bbox_inches='tight')
+    ax.get_legend().remove()
+    plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_combined.svg', bbox_inches='tight', facecolor='white', dpi=300)
     plt.show()
