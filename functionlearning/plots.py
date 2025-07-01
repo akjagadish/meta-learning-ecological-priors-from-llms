@@ -1306,7 +1306,7 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
         per_trial_mse = results_mi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)
-        error_dict_mi['Dataset'].append('RMF')
+        error_dict_mi['Dataset'].append('MI')
         error_dict_mi['Per_trial_MSE'].append(per_trial_mse)
 
     # Combine the data into a single DataFrame
@@ -1572,6 +1572,9 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
     if model == 'both':
         sns.despine()
         plt.grid(visible=False)
+        # ————— Add these two lines —————
+        axs.axvline(30, color='#505050', linestyle=':', linewidth=1.5)
+        axs.axvline(70, color='#505050', linestyle=':', linewidth=1.5)
         plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_function={function}_model={dataset}_offset={str(offset)}.svg', bbox_inches='tight')
 
     # # Plot the per-trial MSE
