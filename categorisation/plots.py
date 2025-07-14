@@ -520,6 +520,11 @@ def model_simulations_shepard1961(plot='main', num_blocks=15, tasks=np.arange(1,
          models = ['humans',\
               'env=claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0',
               'LLM'] 
+    elif plot == 'bermi':
+        models = ['humans',\
+                  'env=claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0',
+                  'bermi',\
+               ]
     else:
         raise ValueError('plot should be either main, supplementary or rebuttals')
     
@@ -536,6 +541,17 @@ def model_simulations_shepard1961(plot='main', num_blocks=15, tasks=np.arange(1,
             block_errors = np.load(f'{SYS_PATH}/categorisation/data/stats/shepard1961_llm_simulations.npz', allow_pickle=True)  
             errors[m_idx] = block_errors['block_errors']+0.1
             betas.append(None)
+        elif model == 'bermi':
+            mse_distance, ess_range, beta_range = np.load(f'{SYS_PATH}/categorisation/data/model_simulation/bermi_mse_esses.npy', allow_pickle=True)
+            block_errors_esses = np.load(f'{SYS_PATH}/categorisation/data/model_simulation/bermi_block_errors_esses_betas.npy', allow_pickle=True)
+            ind = np.unravel_index(np.argmin(mse_distance, axis=None), mse_distance.shape)
+            ess = ess_range[ind[0]]
+            beta = beta_range[ind[1]]
+            min_mse = np.min(mse_distance)
+            errors[m_idx] = block_errors_esses[ind[0], ind[1]][:, :num_blocks]
+            # print min mse distance and corresponding beta
+            print(f'{model_name} min mse distance, beta, and ess: {min_mse}, {beta}, and {ess}')
+            betas.append(beta)
         else:
             #assert num_blocks==15, "Number of blocks fixed to 15"
             NUM_BLOCKS=15 # number of blocks used to find best fit is fixed to 15
@@ -587,6 +603,8 @@ def model_simulations_shepard1961(plot='main', num_blocks=15, tasks=np.arange(1,
             model_name = 'ermi' if 'claude' in models[idx] else 'rmc' if 'rmc' in models[idx] else 'pfn' if 'synthetic_nonlinear' in models[idx] else 'mi'if 'synthetic' in models[idx] else 'LLM'
             if model_name=='ermi':
                 ax.set_title('ERMI', fontsize=FONTSIZE)
+            if models[idx] == 'bermi':
+                ax.set_title('BERMI', fontsize=FONTSIZE)
             elif model_name =='rmc':
                 ax.set_title('RMC', fontsize=FONTSIZE)
             elif model_name =='pfn':
