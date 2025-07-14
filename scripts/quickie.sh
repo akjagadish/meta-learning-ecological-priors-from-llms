@@ -20,4 +20,5 @@ module load pytorch/gpu-cuda-12.1/2.2.0
 pip3 install --user ipdb torch transformers tensorboard ipdb tqdm schedulefree
 
 
-python mi/simulate_bermi_categorylearning.py
+# python mi/simulate_bermi_categorylearning.py
+python mi/fitted_simulations.py --model-name bermi --method bounded --task-name devraj2022 --optimizer differential_evolution
