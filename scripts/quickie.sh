@@ -22,3 +22,5 @@ pip3 install --user ipdb torch transformers tensorboard ipdb tqdm schedulefree
 
 # python mi/simulate_bermi_categorylearning.py
 python mi/fitted_simulations.py --model-name bermi --method bounded --task-name devraj2022 --optimizer differential_evolution
+python categorisation/baselines/run_gcm.py --num-iter 1 --task-name devraj2022 --loss mse_transfer --num-blocks 11  --model-name bermi --method bounded
+python categorisation/baselines/run_pm.py --num-iter 1 --prototypes from_data --task-name devraj2022 --loss mse_transfer --num-blocks 11  --model-name bermi --method bounded
