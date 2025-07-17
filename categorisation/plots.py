@@ -27,10 +27,12 @@ def posterior_model_frequency(bics, models, horizontal=False, FIGSIZE=(6,4), tas
     # rename models for plot
     
     if task_name == 'Badham et al. (2017)':
+        # colors = ['#5d7684','#173b4f', '#505050',  '#505050','#505050', '#505050', '#505050', '#505050', '#505050', '#505050', '#505050']
         colors = ['#407193','#505050',  '#CA8243','#505050', '#505050', '#505050', '#505050', '#505050', '#505050', '#505050']
         #colors = ['#173b4f', '#4d6a75','#5d7684', '#748995','#4d6a75', '#0d2c3d', '#a2c0a9', '#2f4a5a', '#8b9da7', '#c4d9c2']
     elif task_name == 'Devraj et al. (2022)':
         # colors = ['#173b4f', '#8b9da7', '#5d7684', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2']
+        # colors = ['#5d7684', '#173b4f','#505050','#505050', '#505050', '#505050', '#505050', '#505050', '#505050','#505050']
         colors = ['#407193', '#CA8243','#505050','#505050', '#505050', '#505050', '#505050', '#505050', '#505050','#505050']
     # sort result in descending order
     sort_order = np.argsort(result.frequency_mean)[::-1]
@@ -128,7 +130,7 @@ def exceedance_probability(bics, models, horizontal=False, FIGSIZE=(7,5), task_n
     
 def model_comparison_badham2017(FIGSIZE=(7,5)):
     models = [
-            #   'task=badham2017_experiment=1_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5',\
+              'task=badham2017_experiment=1_source=claude_condition=unknown_loss=nll_paired=True_method=bounded_optimizer=grid_search_numiters=5',\
               'badham2017_env=claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0_soft_sigmoid_differential_evolution',\
               'badham2017_env=rmc_tasks_dim3_data100_tasks11499_model=transformer_num_episodes500000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=1_rmc_soft_sigmoid_differential_evolution',
             #   'badham2017_llm_runs=1_iters=1_blocks=1_loss=nll',\
@@ -148,6 +150,7 @@ def model_comparison_badham2017(FIGSIZE=(7,5)):
     # FONTSIZE = 16
     # MODELS = ['ERMI', 'RMC-MI', 'L-MI', 'PFN-MI', 'GCM', 'Rulex', 'Rule',  'PM']
     # MODELS = ['BERMI', 'ERMI', 'RMC',  'LLM', 'MI', 'PFN', 'GCM', 'Rulex', 'Rule',  'PM']
+    #MODELS = ['BERMI', 'ERMI', 'RMC', 'MI', 'PFN', 'GCM', 'Rule',  'PM']# 'Rulex',
     MODELS = ['ERMI', 'RMC', 'MI', 'PFN', 'GCM', 'Rule',  'PM']# 'Rulex',
 
 
@@ -277,7 +280,7 @@ def model_comparison_badham2017(FIGSIZE=(7,5)):
     # plt.show()   
 
     task_name = 'Badham et al. (2017)'
-    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
+    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4)) #cogsci: FIGSIZE=(9,4))
     exceedance_probability(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
 
 def model_comparison_devraj2022(FIGSIZE=(6,5)):
@@ -299,6 +302,7 @@ def model_comparison_devraj2022(FIGSIZE=(6,5)):
     num_trials = NUM_TRIALs*NUM_TASKS
     # FONTSIZE = 16
     # MODELS = ['BERMI', 'ERMI', 'LLM', 'MI', 'PFN', 'GCM', 'PM', 'Rulex', 'Rule']
+    # MODELS = ['BERMI','ERMI', 'MI', 'PFN', 'GCM', 'PM', 'Rule'] # Cogsci
     MODELS = ['ERMI', 'MI', 'PFN', 'GCM', 'PM', 'Rule'] #'Rulex', 
 
     for model_name in models:
@@ -424,14 +428,15 @@ def model_comparison_devraj2022(FIGSIZE=(6,5)):
     # plt.show() 
 
     task_name = 'Devraj et al. (2022)'
-    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
+    posterior_model_frequency(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))# cogsci: FIGSIZE=(9,4))
     exceedance_probability(np.array(bics), MODELS, task_name=task_name, FIGSIZE=(6,4))
 
 def model_simulations_smith1998(plot='main'):
 
-    models = ['smith1998', 'ermi', 'synthetic',] if plot == 'main' else ['smith1998', 'ermi', 'syntheticnonlinear']#'human'
+    models = ['smith1998', 'ermi', 'synthetic',] if plot == 'main' else ['smith1998', 'ermi', 'syntheticnonlinear'] if plot == 'supplementary' else ['smith1998', 'ermi', 'bermi']
     f, ax = plt.subplots(1, len(models), figsize=(6*len(models),4))
-    #colors = ['#173b4f', '#748995'] ##5d7684']
+    #colors = ['#173b4f', '#748995', '#5d7684'] #ICML
+    # colors = ['#505050', '#173b4f', '#5d7684'] # Cogsci
     colors = ['#505050', '#407193',  '#CA8243']
     num_blocks = None
     for idx, model in enumerate(models):
@@ -572,7 +577,8 @@ def model_simulations_shepard1961(plot='main', num_blocks=15, tasks=np.arange(1,
         data = json.load(json_file)
     # compare the error rate over trials between different tasks meaned over noise levels, shuffles and shuffle_evals
     f, axes = plt.subplots(1, len(models), figsize=(6*len(models), 4))
-    # colors = ['#E0E1DD', '#B6B9B9', '#8C9295', '#616A72','#37434E','#0D1B2A']
+    # colors = ['#E0E1DD', '#B6B9B9', '#8C9295', '#616A72','#37434E','#0D1B2A'] # ICML
+    # colors = ['#505050', '#173b4f', '#5d7684']# Cogsci
     colors = ['#505050', '#407193',  '#CA8243']
     # markers for the six types of rules in the plot: circle, cross, plus, inverted triangle, asterisk, triangle
     markers = ['o', 'x', '+', '*', 'v', '^']
