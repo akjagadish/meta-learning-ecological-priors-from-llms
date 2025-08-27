@@ -1289,8 +1289,8 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
     # colors = ['#ca8243', '#B17F52', '#867A6B', '#527489','#407193']
     # colors =['#173b4f', '#173b4f', '#8b9da7', '#5d7684', '#c4d9c2', '#2f4a5a', '#0d2c3d', '#4d6a75', '#748995', '#a2c0a9', '#c4d9c2', '#3b3b3b'][:len(functions)]
     function_names = {'positive_linear': '$\plus$ Linear', 'negative_linear': '$\minus$ Linear', 'quadratic': 'Quadratic', 'exponential': 'Exponential', 'sinusoidal': 'Periodic'}
-    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
-    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': []}
+    error_dict_ermi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': [], 'MSE_SEM': []}
+    error_dict_mi = {'Function': [], 'MSE': [], 'Dataset': [], 'Per_trial_MSE': [], 'MSE_SEM': []}
     for function in functions:
         mse = results_ermi['model_errors'].squeeze()[(results_ermi['ground_truth_functions'] == function)].mean()
         num_trials = results_ermi['per_trial_model_errors'].shape[-1]
@@ -1298,6 +1298,7 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
         per_trial_mse = results_ermi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_ermi['Function'].append(function_names[function])
         error_dict_ermi['MSE'].append(mse)
+        error_dict_ermi['MSE_SEM'].append(per_trial_mse.mean(1).std() / np.sqrt(per_trial_mse.shape[0]))
         error_dict_ermi['Dataset'].append('ERMI')
         error_dict_ermi['Per_trial_MSE'].append(per_trial_mse)
         
@@ -1306,6 +1307,7 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
         per_trial_mse = results_mi['per_trial_model_errors'].reshape(-1, num_trials)[(ground_truth_functions_repeated == function)].reshape(-1, num_trials)
         error_dict_mi['Function'].append(function_names[function])
         error_dict_mi['MSE'].append(mse)
+        error_dict_mi['MSE_SEM'].append(per_trial_mse.mean(1).std() / np.sqrt(per_trial_mse.shape[0]))
         error_dict_mi['Dataset'].append('MI')
         error_dict_mi['Per_trial_MSE'].append(per_trial_mse)
 
@@ -1326,12 +1328,47 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
         # Create side-by-side bars for both datasets using seaborn
         ax = sns.barplot(data=df_combined, x='Function', y='MSE', hue='Dataset', 
                         palette=[colors_ermi[0], colors_mi[0]], alpha=1.0, ax=ax)
+        # Add custom error bars using MSE_SEM
+        for i, (dataset, color) in enumerate(zip(['ERMI', 'MI'], [colors_ermi[0], colors_mi[0]])):
+            subset = df_combined[df_combined['Dataset'] == dataset]
+            for j, (idx, row) in enumerate(subset.iterrows()):
+                ax.errorbar(
+                    j + (i - 0.5) * 0.4,  # bar position
+                    row['MSE'],
+                    yerr=row['MSE_SEM'],
+                    fmt='none',
+                    ecolor='k',
+                    capsize=5,
+                    elinewidth=2,
+                    zorder=10
+                )
         ax.legend(frameon=False, fontsize=FONTSIZE-2)
     else:
         # Single dataset bar plot using seaborn
         # Create a color palette matching the original colors
         palette = colors[:len(df_combined['Function'].unique())]
-        ax = sns.barplot(data=df_combined, x='Function', y='MSE', palette=palette, ax=ax)
+        ax = sns.barplot(data=df_combined, x='Function', y='MSE',  color=palette[0], ax=ax)
+        import matplotlib.patches as mpatches
+        legend_patch = mpatches.Patch(color=palette[0], label='ERMI')
+        ax.legend(handles=[legend_patch], frameon=False, fontsize=FONTSIZE-2)
+        alphas = [1.0, 0.7, 0.5, 0.3, 0.1]  # You need as many as there are bars
+        bars = ax.patches
+
+        for bar, alpha in zip(bars, alphas):
+            bar.set_alpha(alpha)
+        # Add custom error bars using MSE_SEM
+        for i, (idx, row) in enumerate(df_combined.iterrows()):
+            ax.errorbar(
+                i,  # bar position
+                row['MSE'],
+                yerr=row['MSE_SEM'],
+                fmt='none',
+                ecolor='k',
+                capsize=5,
+                elinewidth=2,
+                zorder=10
+            )
+      
         ax.tick_params(axis='x', which='major', labelsize=FONTSIZE-2)
     
     sns.despine()
@@ -1347,12 +1384,13 @@ def model_errors_function_types(model='ermi', FIGSIZE=(6, 4), FONTSIZE=20):
     else:
         # Plot the per-trial MSE
         # sns.set(style="whitegrid")
+        markers = ['o', 's', 'D', '^', 'v']
         for dataset in df_combined['Dataset'].unique():
             fig, ax = plt.subplots(figsize=FIGSIZE)
             for f_idx, function in enumerate(df_combined['Function'].unique()):
                 subset = df_combined[(df_combined['Function'] == function) & (df_combined['Dataset'] == dataset)]
                 per_trial_mse = np.array(subset['Per_trial_MSE'].values[0])
-                ax.plot(per_trial_mse.mean(axis=0), label=f'{function}', color=colors[f_idx], alpha=0.7 if f_idx==1 else 1.0, lw=2)
+                ax.plot(per_trial_mse.mean(axis=0), label=f'{function}', color=colors[0], alpha=alphas[f_idx], lw=2, markersize=6, marker=markers[f_idx])
             ax.set_xlabel('Trial', fontsize=FONTSIZE)
             ax.set_ylabel('Mean-squared Error', fontsize=FONTSIZE)
             ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
@@ -1543,18 +1581,17 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
     # y = y/250 - 0.5
     # x = x/100 - 0.5
     # sns.set(style="whitegrid")
-    if model == 'both':
-        fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-        axs.scatter(human_data['x'], human_data['y'], label='Human', color='#505050', alpha=1.)
-        axs.plot(x, y, label='Correct', color='black', linestyle='--')
-        axs.legend(frameon=False, fontsize=FONTSIZE-2)
+    # if model == 'both':
+    fig, axs = plt.subplots(1, 1, figsize=(6, 4))
+    axs.scatter(human_data['x'], human_data['y'], label='Human', color='#505050', alpha=1.)
+    axs.plot(x, y, label='Correct', color='black', linestyle='--')
     for dataset in df_combined['Dataset'].unique():
         for function in df_combined['Function'].unique():
             subset = df_combined[(df_combined['Function'] == function) & (df_combined['Dataset'] == dataset)]
-            if model!='both':
-                fig, axs = plt.subplots(1, 1, figsize=(6, 4))
+            # if model!='both':
+            #     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
             for i, row in subset.iterrows():
-                axs.scatter((row['Extrapolation_Input']+0.5)*100, (row['Extrapolation_Target']+0.5)*250, label='', alpha=1.0, color='#407193' if dataset == "ERMI" else '#ca8243')
+                axs.scatter((row['Extrapolation_Input']+0.5)*100, (row['Extrapolation_Target']+0.5)*250, alpha=1.0, color='#407193' if dataset == "ERMI" else '#ca8243', label='ERMI' if dataset == "ERMI" else '')
             axs.set_xlabel('Input', fontsize=FONTSIZE)
             axs.set_ylabel('Target', fontsize=FONTSIZE)
             axs.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
@@ -1564,17 +1601,19 @@ def model_extrapolation_delosh1997(model='ermi', FIGSIZE=(6, 4), offset=False, F
             plt.grid(visible=False)
             plt.ylim(-2, 300)
             sns.despine()
+            # ————— Add these two lines —————
+            axs.axvline(30, color='#505050', linestyle=':', linewidth=1.5)
+            axs.axvline(70, color='#505050', linestyle=':', linewidth=1.5)
+            axs.legend(frameon=False, fontsize=FONTSIZE-2)
             if model!='both':
-                axs.plot(x, y, label='Correct', color='black', linestyle='-')
+                # axs.plot(x, y, label='Correct', color='black', linestyle='-')
+                plt.grid(visible=False)
                 plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_function={function}_model={dataset}_offset={str(offset)}.svg', bbox_inches='tight')
             # plt.show()
     axs.legend(frameon=False, fontsize=FONTSIZE-2)
     if model == 'both':
         sns.despine()
         plt.grid(visible=False)
-        # ————— Add these two lines —————
-        axs.axvline(30, color='#505050', linestyle=':', linewidth=1.5)
-        axs.axvline(70, color='#505050', linestyle=':', linewidth=1.5)
         plt.savefig(f'{SYS_PATH}/figures/functionlearning_extrapolation_function={function}_model={dataset}_offset={str(offset)}.svg', bbox_inches='tight')
 
     # # Plot the per-trial MSE
@@ -1910,17 +1949,25 @@ def model_comparison_little2024(plot_model='together', FIGSIZE=(6,4), experiment
             # Plot model predictions
             sns.lineplot(data=plot_data[plot_data['Type'] == 'Model'], 
                         x='Input', y='Target', 
-                        color=color, linewidth=2.5, label=model_name, ax=ax)
+                        color=color, linewidth=2.5, label='', ax=ax)#model_name
 
-            # Plot human predictions
-            sns.lineplot(data=plot_data[plot_data['Type'] == 'Human'], 
-                        x='Input', y='Target', 
-                        color='#505050', linewidth=2.5, label='Human', ax=ax)
+            # Only label Human and GT once
+            if model_idx == 0:
+                sns.lineplot(data=plot_data[plot_data['Type'] == 'Human'], 
+                            x='Input', y='Target', 
+                            color='#505050', linewidth=2.5, label='Human', ax=ax)
 
-            # Plot ground truth as scatter
-            sns.scatterplot(data=plot_data[plot_data['Type'] == 'Ground Truth'], 
-                           x='Input', y='Target', 
-                           color='black', s=80, label='Ground Truth', ax=ax)
+                sns.scatterplot(data=plot_data[plot_data['Type'] == 'Ground Truth'], 
+                                x='Input', y='Target', 
+                                color='black', s=80, label='Ground Truth', ax=ax)
+            else:
+                sns.lineplot(data=plot_data[plot_data['Type'] == 'Human'], 
+                            x='Input', y='Target', 
+                            color='#505050', linewidth=2.5, label='', ax=ax)
+
+                sns.scatterplot(data=plot_data[plot_data['Type'] == 'Ground Truth'], 
+                                x='Input', y='Target', 
+                                color='black', s=80, label='', ax=ax)
 
         # Customize the plot
         ax.set_xlabel('Input', fontsize=FONTSIZE)
@@ -1928,8 +1975,8 @@ def model_comparison_little2024(plot_model='together', FIGSIZE=(6,4), experiment
         # ax.set_title(f'{model_name} - Function {function + 1}', fontsize=FONTSIZE + 2, pad=20)
         ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
 
-        # # Customize legend
-        # legend = ax.legend(frameon=True, fontsize=FONTSIZE-2, loc='best')
+        # Customize legend
+        legend = ax.legend(frameon=False, fontsize=FONTSIZE-2, loc='best')
         # legend.get_frame().set_facecolor('white')
         # legend.get_frame().set_alpha(0.9)
         # legend.get_frame().set_edgecolor('gray')
@@ -1937,7 +1984,7 @@ def model_comparison_little2024(plot_model='together', FIGSIZE=(6,4), experiment
 
         # Remove grid for cleaner look
         ax.grid(False)
-        ax.get_legend().remove()
+        # ax.get_legend().remove()
 
         # Use seaborn despine for cleaner axes
         sns.despine(ax=ax)
@@ -1977,7 +2024,7 @@ def interpolation_and_extrapolation_little2024(FIGSIZE=(6,4), experiment_ids=[1,
         for error in rmf_errors:
             all_data.append({
                 'Experiment': experiment_name,
-                'Model': 'RMF', 
+                'Model': 'MI', 
                 'MSE': error
             })
     
@@ -1993,6 +2040,6 @@ def interpolation_and_extrapolation_little2024(FIGSIZE=(6,4), experiment_ids=[1,
     ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
     ax.legend(frameon=False, fontsize=FONTSIZE-2)
     plt.grid(visible=False)
-    ax.get_legend().remove()
+    # ax.get_legend().remove()
     plt.savefig(f'{SYS_PATH}/figures/functionlearning_model_comparison_little2024_combined.svg', bbox_inches='tight', facecolor='white', dpi=300)
     plt.show()
