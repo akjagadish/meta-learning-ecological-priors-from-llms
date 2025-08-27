@@ -639,7 +639,7 @@ def model_simulations_shepard1961(plot='main', num_blocks=15, tasks=np.arange(1,
     f.savefig(f'{SYS_PATH}/figures/model_simulations_shepard1961.svg', bbox_inches='tight', dpi=300)
 
 
-def model_comparison_johanssen2002(plot='main', task_block=32):
+def model_comparison_johanssen2002_icml(plot='main', task_block=32):
 
     # choose  params for ermi simulations
     ermi_beta = np.load(f'{SYS_PATH}/categorisation/data/meta_learner/johanssen_categorisation_ermi_{task_block}_best_beta.npy')
@@ -853,7 +853,7 @@ def model_comparison_johanssen2002(plot="main", task_block=32):
     palette = ["#505050", "#407193", "#CA8243"] if plot == "main" else ["#505050", "#407193", "#66828F"]
 
     fig, ax = plt.subplots(figsize=(6, 4))
-    sns.barplot(data=df_plot, x="stimulus", y="prob_A", hue="model", palette=palette, ax=ax, width=0.8, edgecolor="black")
+    sns.barplot(data=df_plot, x="stimulus", y="prob_A", hue="model", palette=palette, ax=ax, width=0.8)#, edgecolor="black")
 
     # Reference line & aesthetics
     ax.axhline(0.5, ls="--", c="black", lw=1)
