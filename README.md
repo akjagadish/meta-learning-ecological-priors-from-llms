@@ -164,8 +164,8 @@ This project is for research purposes only and should not be used for any other 
 ## Citation
 
 If you use our work, please cite our
-[Coming soon]() as such:
+[work]() as such:
 
 ``` bibtex
-Coming soon
+Coming soon!
 ```
