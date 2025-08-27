@@ -75,8 +75,8 @@ These instructions will get you a copy of the project up and running on your loc
 Clone the repository to your local machine. Then, install the required Python libraries from ` requirements.txt` and install the ermi package using pip:
     
 ```bash
-git clone https://github.com/akjagadish/ermi.git
-cd ermi
+git clone https://github.com/akjagadish/meta-learning-ecological-priors-from-llms.git
+cd meta-learning-ecological-priors-from-llms
 pip install -r requirements.txt
 pip install .
 ```
@@ -102,32 +102,32 @@ export BERMI_WEIGHTS==/PATH/to/dir/
 
 ## Usage
 
-I will run through how to generate category learning tasks from Claude-v2 for three dimensional stimuli, train ERMI model on this task, simulate data  from the trained model, and fit the model to human data from Badham et al. 2017 task. But the same steps can be used for other tasks and models (MI and PFN) as well. I will also show how to fit a baseline model on Badham et al. 2017 task and how to run benchmarking on OpenML-CC18 benchmark. All scripts used for running experiments are located in the scripts directory. Note that all the *.sh files in there are written for the HPC cluster we use, therefore it likely won't run out of the box on other systems. The python scripts should be portable as is.
+I will run through the steps for the domain of category learning. I first demonstrate how to generate category learning tasks from Claude-v2 for three dimensional stimuli, train ERMI model on this task, simulate data  from the trained model, and fit the model to human data from Badham et al. 2017 task. The same steps can be used for other tasks, models, and domains. I will also show how to fit a baseline model on Badham et al. 2017 task. All scripts used for running experiments are located in the scripts directory. Note that all the *.sh files in there are written for the HPC cluster we use, therefore it likely won't run out of the box on other systems. The python scripts should be portable as is.
 
 
 ### Generate category learning tasks from Claude-v2
 To generate category learning tasks from Claude-v2, there are two steps. 
 
-Step 1: Generate task labels using the following command:
+Step 1: Synthesize problems using the following command:
 ```bash
 # Generate task labels in 100 separte runs for category learning tasks from Claude-v2
-python task_generation/generate_tasklabels.py --model NA --proc-id 0 --num-runs 100 --num-tasks 250 --num-dim 3 --max-length 10000 --run-gpt claude --prompt-version 5 
+python task_generation/synthesize_problems.py --model NA --proc-id 0 --num-runs 100 --num-tasks 250 --num-dim 3 --max-length 10000 --run-gpt claude --prompt-version 5 
 
 # Pool the generated task labels into a single pandas dataframe
-python task_generation/generate_tasklabels.py --model NA --proc-id 0 --num-runs 100 --num-tasks 250 --num-dim 3 --max-length 10000 --run-gpt claude --prompt-version 5 --pool --path /PATH/to/dir/categorisation/data/tasklabels
+python task_generation/synthesize_problems.py --model NA --proc-id 0 --num-runs 100 --num-tasks 250 --num-dim 3 --max-length 10000 --run-gpt claude --prompt-version 5 --pool --path /PATH/to/dir/categorisation/data/tasklabels
 
 ``` 
 
-Step 2: Generate category learning tasks using the following command:
+Step 2: Generate data for synthesized category learning tasks using the following command:
 ```bash
-python task_generation/generate_tasks.py --model NA --proc-id 0  --num-tasks 10000 --start-task-id 0 --num-dim 3 --num-data 100 --max-length 4000 --run-gpt claude --prompt-version 4 --use-generated-tasklabels --file-name-tasklabels claude_generated_tasklabels_paramsNA_dim3_tasks23426_pversion5 --path-tasklabels /PATH/to/dir/categorisation/data/tasklabels
+python task_generation/generate_data.py --model NA --proc-id 0  --num-tasks 10000 --start-task-id 0 --num-dim 3 --num-data 100 --max-length 4000 --run-gpt claude --prompt-version 4 --use-generated-tasklabels --file-name-tasklabels claude_generated_tasklabels_paramsNA_dim3_tasks23426_pversion5 --path-tasklabels /PATH/to/dir/categorisation/data/tasklabels
 ```
 
 ### Train ERMI model
 
 To train ERMI model on the generated tasks, use the following command:
 ```bash
-python mi/train_transformer.py --num-episodes 500000 --save-every 100 --print-every 100 --max-steps 250 --env-name claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4 --noise 0.0 --model-name transformer --num_hidden 256 --num_layers 6 --d_model 64 --num_head 8 --batch_size 64 --shuffle --env-dir /PATH/to/dir/categorisation/data/generated_tasks --shuffle-features --first-run-id 0
+python mi/train_categorisation.py --num-episodes 500000 --save-every 100 --print-every 100 --max-steps 250 --env-name claude_generated_tasks_paramsNA_dim3_data100_tasks11518_pversion4 --noise 0.0 --model-name transformer --num_hidden 256 --num_layers 6 --d_model 64 --num_head 8 --batch_size 64 --shuffle --env-dir /PATH/to/dir/categorisation/data/generated_tasks --shuffle-features --first-run-id 0
 ```
 
 ### Fit ERMI model to human data
@@ -149,10 +149,10 @@ python mi/fitted_simulations.py --model-name env=claude_generated_tasks_paramsNA
 
 To run a baseline model on the Badham et al. 2017 task, use the following command:
 ```bash
-python baselines/run_gcm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --task-name badham2017 
-python baselines/run_pm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --prototypes from_data --task-name badham2017
-python baselines/run_rulex.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --task-name badham2017
-python baselines/run_llm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --dataset badham2017
+python categorisation/baselines/run_gcm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --task-name badham2017 
+python categorisation/baselines/run_pm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --prototypes from_data --task-name badham2017
+python categorisation/baselines/run_rulex.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --task-name badham2017
+python categorisation/baselines/run_llm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --dataset badham2017
 ```
 
 ## License
