@@ -17,59 +17,58 @@ Human cognition is profoundly shaped by the environments in which it unfolds. Ye
 ```bash
 .
 ├── categorisation
-│   ├── baselines # baseline models: GCM, Prototype, Rule, Rulex, and LLM
-│   │   ├── gcm.py # Generalized Context Model
-│   │   ├── llm.py # Claude-v2 as a cognitive model
-│   │   ├── pm.py # Prototype Model
-│   │   ├── rulex.py # Rulex model 
-│   │   ├── run_gcm.py # run GCM
-│   │   ├── run_llm.py # run LLM
-│   │   ├── run_pm.py # run PM
-│   │   ├── run_rulex.py # run Rulex
-│   │   └── simulate_llm.py # simulate data from LLM
-│   ├── benchmark 
-│   │   ├── eval.py # evaluate ERMI and other baseline models on OpenML-CC18 benchmark
-│   │   └── save_eval_data.py # save openml-cc18 data for evaluation in a format used by Hollman et al. 2022 
-│   ├── data # contains directories with data and results
-│   │   ├── benchmark # results from benchmarking
-│   │   ├── fitted_simulation # simulate data from MI models using parameters fitted to humans
-│   │   ├── generated_tasks # generated tasks from LLM, synthetic, and OpenML-CC18
-│   │   ├── human # human data from the three experiments
-│   │   ├── llm # data from large language models
-│   │   ├── meta_learner # simulate data from metalearned inference models
-│   │   ├── model_comparison # results from model comparison
-│   │   ├── stats # statistics from generated tasks
-│   │   └── task_labels  # LLM synthesized problems
-│   ├── mi # train, evaluate, and simulate meta-learned inference models: ERMI, MI and PFN
-│   │   ├── baseline_classifiers.py # baseline classifiers
-│   │   ├── envs.py # environment classes
-│   │   ├── evaluate.py # evaluation functions
-│   │   ├── fit_humans.py # fit human data to MI models
-│   │   ├── fitted_simulations.py # simulate data from MI, ERMI and PFN models using parameters fitted to humans
-│   │   ├── human_envs.py # environment classes simulating human experiments
-│   │   ├── model.py # model classes
-│   │   ├── model_utils.py # utility functions for models
-│   │   ├── simulate_johanssen2002.py # simulate data from Johanssen et al. 2002
-│   │   ├── simulate_mi.py # simulate data for different experiments from ERMI, MI and PFN models
-│   │   ├── simulate_shepard1961.py # simulate data from Shepard et al. 1961
-│   │   └── train_transformer.py # train ERMI, MI and PFN models
-│   ├── task_generation # category learning tasks from large language models, synthetic tasks, and OpenML-CC18 tasks
-│   │   ├── generate_linear_data.py # generate category learning tasks with linear decision boundaries
-│   │   ├── generate_real_data.py # save category learning tasks from OpenML-CC18 benchmark
-│   │   ├── generate_synthetic_data.py # generate synthetic category learning tasks
-│   │   ├── generate_tasklabels.py # generate task labels for LLM synthesized problems
-│   │   ├── generate_tasks.py # generate category learning tasks from large language models
-│   │   ├── parse_generated_tasks.py # parse generated tasks from large language models
-│   │   ├── prompts.py # prompts for large language models to generate category learning tasks
-│   │   └── utils.py
-│   ├── trained_models  # trained ERMI, MI and PFN models
-│   ├── make_plots.py # replicate plots used in the paper
-│   ├── plots.py # plot functions
+│   ├── baselines
+│   │   ├── gcm.py
+│   │   ├── llm.py
+│   │   ├── pm.py
+│   │   ├── rulex.py
+│   │   ├── run_gcm.py
+│   │   ├── run_llm.py
+│   │   ├── run_pm.py
+│   │   ├── run_rulex.py
+│   │   └── simulate_llm.py
+│   ├── benchmark
+│   │   ├── eval.py
+│   │   └── save_eval_data.py
+│   ├── data
+│   │   ├── benchmark
+│   │   ├── fitted_simulation
+│   │   ├── generated_tasks
+│   │   ├── human
+│   │   ├── llm
+│   │   ├── meta_learner
+│   │   ├── model_comparison
+│   │   ├── stats
+│   │   └── task_labels
+│   ├── mi
+│   │   ├── baseline_classifiers.py
+│   │   ├── envs.py
+│   │   ├── evaluate.py
+│   │   ├── fit_humans.py
+│   │   ├── fitted_simulations.py
+│   │   ├── human_envs.py
+│   │   ├── model.py
+│   │   ├── model_utils.py
+│   │   ├── simulate_johanssen2002.py
+│   │   ├── simulate_mi.py
+│   │   ├── simulate_shepard1961.py
+│   │   └── train_transformer.py
+├── decisionmaking
+├── functionlearning
+├── taskgeneration
+│   ├── generate_linear_data.py
+│   ├── generate_real_data.py
+│   ├── generate_synthetic_data.py
+│   ├── generate_tasklabels.py
+│   ├── generate_tasks.py
+│   ├── parse_generated_tasks.py
+│   ├── prompts.py
 │   └── utils.py
-├── figures # all figures used in the paper
-├── scripts # bash scripts for running experiments
-├── notebooks # jupyter notebooks for playing around with data, benchmarking...
-├── logs # log files from running experiments
+├── trained_models
+├── figures
+├── scripts
+├── notebooks
+├── logs
 └── README.md
 
 ```
@@ -81,7 +80,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 
 ### Installation
-Clone the repository to your local machine. Then, install the required Python libraries from `requirements.text` and install the ermi package using pip:
+Clone the repository to your local machine. Then, install the required Python libraries from ` requirements.txt` and install the ermi package using pip:
     
 ```bash
 git clone https://github.com/akjagadish/ermi.git
@@ -156,21 +155,12 @@ python mi/fitted_simulations.py --model-name env=claude_generated_tasks_paramsNA
 
 ### Fit baseline models to human data for model comparison
 
-To run a baseline model on Badham et al. 2017 task, use the following command:
+To run a baseline model on the Badham et al. 2017 task, use the following command:
 ```bash
 python baselines/run_gcm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --task-name badham2017 
 python baselines/run_pm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --prototypes from_data --task-name badham2017
 python baselines/run_rulex.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --task-name badham2017
-python baselines/run_rulex.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --exception --task-name badham2017
 python baselines/run_llm.py --num-iter 1 --loss 'nll' --num-blocks 1 --fit-human-data --dataset badham2017
-```
-
-### Evaluate ERMI model on OpenML-CC18 benchmark
-
-To evaluate ERMI model on OpenML-CC18 benchmark, use the following command:
-```bash
-python benchmark/eval.py
-
 ```
 
 ## License
@@ -182,13 +172,8 @@ This project is for research purposes only and should not be used for any other 
 ## Citation
 
 If you use our work, please cite our
-[paper](https://arxiv.org/abs/2402.01821) as such:
+[Coming soon]() as such:
 
 ``` bibtex
-@article{jagadish2024ecologically,
-  title={Bounded ecologically rational meta-learned inference},
-  author={Jagadish, Akshay K and Schulz, Eric and Binz, Marcel},
-  journal={arXiv preprint arXiv:2402.01821},
-  year={2024}
-}
+Coming soon
 ```
