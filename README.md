@@ -6,7 +6,7 @@ This repository contains the code for the project "Meta-learning ecological prio
 
 
 <p align="center">
-  <img src="ERMI.png" />
+  <img src="ermi.png" />
 </p>
 
 ## Abstract
