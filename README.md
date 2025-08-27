@@ -16,57 +16,59 @@ Human cognition is profoundly shaped by the environments in which it unfolds. Ye
 
 ```bash
 .
-├── categorisation
-│   ├── baselines
-│   │   ├── gcm.py
-│   │   ├── llm.py
-│   │   ├── pm.py
-│   │   ├── rulex.py
-│   │   ├── run_gcm.py
-│   │   ├── run_llm.py
-│   │   ├── run_pm.py
-│   │   ├── run_rulex.py
-│   │   └── simulate_llm.py
-│   ├── data
-│   │   ├── benchmark
-│   │   ├── fitted_simulation
-│   │   ├── generated_tasks
-│   │   ├── human
-│   │   ├── llm
-│   │   ├── meta_learner
-│   │   ├── model_comparison
-│   │   ├── stats
-│   │   └── task_labels
-│   ├── mi
-│   │   ├── baseline_classifiers.py
-│   │   ├── envs.py
-│   │   ├── evaluate.py
-│   │   ├── fit_humans.py
-│   │   ├── fitted_simulations.py
-│   │   ├── human_envs.py
-│   │   ├── model.py
-│   │   ├── model_utils.py
-│   │   ├── simulate_johanssen2002.py
-│   │   ├── simulate_mi.py
-│   │   ├── simulate_shepard1961.py
-│   │   └── train_transformer.py
-├── decisionmaking
-├── functionlearning
-├── taskgeneration
-│   ├── generate_linear_data.py
-│   ├── generate_real_data.py
-│   ├── generate_synthetic_data.py
-│   ├── generate_tasklabels.py
-│   ├── generate_tasks.py
-│   ├── parse_generated_tasks.py
-│   ├── prompts.py
+. (project root)
+├── .vscode/
+├── categorisation/
+│   ├── data/
+│   ├── trained_models/
+│   ├── figures.ipynb
+│   ├── make_plots.py
+│   ├── plots.py
 │   └── utils.py
-├── trained_models
-├── figures
-├── scripts
-├── notebooks
-├── logs
-└── README.md
+├── decisionmaking/
+│   ├── data/
+│   ├── trained_models/
+│   ├── figures.ipynb
+│   ├── make_plots.py
+│   ├── plots.py
+│   └── utils.py
+├── functionlearning/
+│   ├── data/
+│   ├── trained_models/
+│   ├── figures.ipynb
+│   ├── make_plots.py
+│   ├── plots.py
+│   └── utils.py
+├── mi/
+│   ├── ablate_model.py
+│   ├── envs.py
+│   ├── evaluate.py
+│   ├── fit_humans.py
+│   ├── fitted_simulations.py
+│   ├── simulate_data.py
+│   ├── simulate_model.py
+│   ├── train_categorisation.py
+│   ├── train_decisionmaking.py
+│   ├── train_functionlearning.py
+│   ├── model.py
+│   ├── model_utils.py
+│   └── utils.py
+├── scripts/
+│   ├── generate_plots.sh
+│   ├── generate_results_bermi_cogsci.sh
+│   ├── generate_tasks.sh
+│   ├── generate_tasks_llama.sh
+│   └── …
+├── taskgeneration/
+│   ├── generate_data.py
+│   ├── llms.py
+│   ├── prompts.py
+│   ├── synthesize_problems.py
+│   └── utils.py
+├── .gitignore
+├── LICENSE
+├── README.md
+└── ermi.png
 
 ```
 
