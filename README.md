@@ -1,8 +1,8 @@
-[![arXiv Badge](https://img.shields.io/badge/arXiv-B31B1B?logo=arxiv&logoColor=fff&style=for-the-badge)](https://arxiv.org/abs/2402.01821) 
+[![arXiv Badge](https://img.shields.io/badge/arXiv-B31B1B?logo=arxiv&logoColor=fff&style=for-the-badge)]() 
 
 
-# Bounded Ecologically Rational Meta-learned Inference (BERMI)
-This repository contains the code for the project "Bounded ecologically rational meta-learned inference"
+# Meta-learning ecological priors from large language models explains human learning and decision making
+This repository contains the code for the project "Meta-learning ecological priors from large language models explains human learning and decision making"
 
 
 <p align="center">
