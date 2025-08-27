@@ -27,9 +27,6 @@ Human cognition is profoundly shaped by the environments in which it unfolds. Ye
 │   │   ├── run_pm.py
 │   │   ├── run_rulex.py
 │   │   └── simulate_llm.py
-│   ├── benchmark
-│   │   ├── eval.py
-│   │   └── save_eval_data.py
 │   ├── data
 │   │   ├── benchmark
 │   │   ├── fitted_simulation
