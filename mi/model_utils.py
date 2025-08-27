@@ -83,7 +83,6 @@ class MLP(torch.nn.Module):
 
 def parse_model_path(model_path, kwargs, return_data_info=False):
     # parse num_hidden, num_layers, d_model, num_head, paired, loss from model_path
-    
     patterns = {
         "num_hidden": r"num_hidden=(\d+)",
         "num_layers": r"num_layers=(\d+)",
@@ -93,6 +92,8 @@ def parse_model_path(model_path, kwargs, return_data_info=False):
         "loss": r"loss=([a-zA-Z0-9]+)",
         "std": r"std=([0-9.]+)",
         "ess": r"ess=([0-9.]+)",
+        "essinit": r"essinit=([0-9.]+)",
+        "dim": r"dim([0-9.]+)",
     }
 
     # Initialize a dictionary to store the parsed parameters
@@ -110,12 +111,13 @@ def parse_model_path(model_path, kwargs, return_data_info=False):
     num_head = int(parameters.get('num_head', 0))
     loss_fn =  parameters.get('loss', 'nll')
     model_max_steps = kwargs.get('model_max_steps', 0)
+    ess = float(parameters.get('ess', 0))
 
     source = 'claude' if 'claude' in model_path else 'synthetic' if 'synthetic' in model_path else 'syntheticnonlinear' if 'syntheticnonlinear' in model_path else 'NA'
-    condition = 'rank' if 'rank' in model_path else 'direction' if 'direction' in model_path else 'unknown'
+    condition = 'pseudoranked' if 'pseudorank' in model_path else 'pseudodirection' if 'pseudodirection' in model_path else 'rank' if 'rank' in model_path else 'direction' if 'direction' in model_path else 'unknown'
     
     if return_data_info:
-        return num_hidden, num_layers, d_model, num_head, loss_fn, model_max_steps, source, condition
+        return num_hidden, num_layers, d_model, num_head, loss_fn, model_max_steps, source, condition, ess
     
     return num_hidden, num_layers, d_model, num_head, loss_fn, model_max_steps
 
@@ -153,3 +155,13 @@ def compute_kld(optimizer, std):
         q = Normal(q_m, q_s)
         kld += kl_divergence(q, p).sum().item()
     return kld
+
+def annealed_ess(episode, num_episodes, ess_init, ess_final, annealing_fraction):
+    if episode < (num_episodes * annealing_fraction):
+        return (ess_init - ess_final) * (1 - episode / (num_episodes * annealing_fraction)) + ess_final
+    return ess_final
+
+def annealed_lambda(episode, num_episodes, ess_init, ess_final, annealing_fraction):
+    if episode < (num_episodes * annealing_fraction):
+        return (ess_final - ess_init) * (episode / (num_episodes * annealing_fraction)) + ess_init
+    return ess_final

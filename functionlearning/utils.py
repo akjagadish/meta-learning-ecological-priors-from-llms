@@ -1,11 +1,12 @@
 import openml
 from sklearn import preprocessing
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.feature_selection import SelectKBest, f_regression
 import numpy as np
 import pandas as pd
+import torch
 
 
-def save_real_data():
+def save_real_data(k=1, method='best', num_points=25):
     # 'OpenML-CTR23 - A curated tabular regression benchmarking suite'
     benchmark_suite = openml.study.get_suite(353)
     num_points = 650
@@ -22,15 +23,14 @@ def save_real_data():
 
             # Normalize the features and targets
             scaler = preprocessing.MinMaxScaler(
-                feature_range=(0, 1)).fit(features)
+                feature_range=(-1, 1)).fit(features)
             features = scaler.transform(features)
             scaler_targets = preprocessing.MinMaxScaler(
-                feature_range=(0, 1)).fit(targets.reshape(-1, 1))
+                feature_range=(-1, 1)).fit(targets.reshape(-1, 1))
             targets = scaler_targets.transform(targets.reshape(-1, 1))
 
             # Select the best feature
-            features = SelectKBest(
-                f_classif, k=1).fit_transform(features, targets)
+            features = SelectKBest(f_regression, k=k).fit_transform(features, targets) if method == 'best' else features[:, np.random.choice(features.shape[1], k, replace=False)]
 
             if features.shape[0] < num_points:
                 xs = [features]
@@ -45,7 +45,52 @@ def save_real_data():
 
             df = pd.DataFrame(
                 data, columns=['input', 'target', 'trial_id', 'task_id'])
-            df.to_csv('real_data.csv')
+            df.to_csv(f'/u/ajagadish/ermi/functionlearning/data/generated_tasks/real_data_dim{k}_method{method}_openML.csv')
 
         else:
             print('not valid data')
+
+
+def save_real_data_lichtenberg2017(k=1, method='best', num_points=25):
+
+    data = []
+    t = 0
+    datasets = torch.load('/u/ajagadish/ermi/functionlearning/data/generated_tasks/lichtenberg2017.pth')
+    for (features, targets) in datasets:  # iterate over all tasks
+
+        if (features.shape[1] < 99999) and (features.shape[1] >= k) and (not np.isnan(features).any()):
+
+            # Normalize the features and targets
+            scaler = preprocessing.MinMaxScaler(
+                feature_range=(-1, 1)).fit(features)
+            features = scaler.transform(features)
+            scaler_targets = preprocessing.MinMaxScaler(
+                feature_range=(-1, 1)).fit(targets.reshape(-1, 1))
+            targets = scaler_targets.transform(targets.reshape(-1, 1))
+
+            # Select the best feature
+            features = SelectKBest(f_regression, k=k).fit_transform(features, targets) if method == 'best' else features[:, np.random.choice(features.shape[1], k, replace=False)]
+
+            if features.shape[0] < num_points:
+                xs = [features]
+                ys = [targets]
+            else:
+                xs = np.array_split(features, features.shape[0] // num_points)
+                ys = np.array_split(targets, targets.shape[0] // num_points)
+            for (x, y) in zip(xs, ys):
+                for i in range(x.shape[0]):
+                    data.append([x[i].tolist(), y[i], i, t])
+                t += 1
+
+            df = pd.DataFrame(
+                data, columns=['input', 'target', 'trial_id', 'task_id'])
+            df.to_csv(f'/u/ajagadish/ermi/functionlearning/data/generated_tasks/real_data_dim{k}_method{method}_lichtenberg2017.csv')
+
+        else:
+            print('not valid data')
+
+if __name__ == '__main__':
+
+    save_real_data(1, 'best', 25)
+    save_real_data_lichtenberg2017(1, 'random', 25)
+    save_real_data_lichtenberg2017(1, 'best', 25)

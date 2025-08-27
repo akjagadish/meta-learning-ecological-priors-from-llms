@@ -176,8 +176,10 @@ def fit_pm_to_fitted_simulations(num_runs, num_blocks, num_iter, num_tasks, num_
         model_name = 'syntheticnonlinear'
     elif 'synthetic' in model_name:
         model_name = 'synthetic'
-    else:
+    elif 'claude' in model_name:
         model_name = 'ermi'
+    elif 'bermi' in model_name:
+        model_name = 'bermi'
         
     # save the r2 and ll values
     lls = np.array(lls)

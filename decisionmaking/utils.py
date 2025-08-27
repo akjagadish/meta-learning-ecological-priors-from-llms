@@ -4,6 +4,15 @@ from sklearn.feature_selection import SelectKBest, f_regression
 import numpy as np
 import pandas as pd
 import torch
+import sys
+import os
+from os import getenv
+from dotenv import load_dotenv
+from sklearn.preprocessing import PolynomialFeatures
+import statsmodels.api as sm
+load_dotenv()
+SYS_PATH = getenv('BERMI_DIR')
+PARADIGM_PATH = f"{SYS_PATH}/decisionmaking"
 
 
 def save_real_data_openML(k=2, method='best', num_points=650):
@@ -91,3 +100,44 @@ def save_real_data_lichtenberg2017(k=2, method='best', num_points=650):
 
         else:
             print('not valid data')
+
+
+def induce_pseudo_condition_llm_generated_data(condition='ranked', regress_all=False):
+
+    # load data
+    env_name = f'{SYS_PATH}/decisionmaking/data/claude_generated_functionlearningtasks_paramsNA_dim4_data20_tasks7284_run0_procid1_pversionunknown'
+    data = pd.read_csv(f'{env_name}.csv')  
+    data.input = data['input'].apply(lambda x: np.array(eval(x)))
+
+    #fit a linear model for each task then order the features based on the ranking of the coefficients
+    for task in data.task_id.unique():
+        df_task = data[data['task_id'] == task]
+        if len(df_task) > 0:
+            y = df_task['target'].to_numpy()
+            X = df_task["input"].to_numpy()
+            X = np.stack(X)
+            X = (X - X.mean(axis=0))/(X.std(axis=0) + 1e-6)
+            y = (y - y.mean(axis=0))/(y.std(axis=0) + 1e-6)
+
+            X_linear = PolynomialFeatures(1, include_bias=True).fit_transform(X)
+
+            if regress_all:
+                # linear regression from X_linear to y
+                linear_regresion = sm.OLS(y, X_linear).fit()
+                order = np.argsort(np.abs(linear_regresion.params[1:]))[::-1]
+                sign = np.sign(linear_regresion.params[1:])
+            else:
+                per_feature_params = np.zeros((X.shape[1]))
+                for i in range(X.shape[1]):
+                    per_feature_params[i] = sm.OLS(
+                        y, X_linear[:, [0, i+1]]).fit().params[1]
+                order = np.argsort(np.abs(per_feature_params))[::-1]
+                sign = np.sign(per_feature_params)
+            
+            if condition == 'ranked':# shuffle the sign of the features so that there is structure
+                sign = np.random.choice([-1, 1], len(sign)) # - sign if np.random.rand() > 0.95 else
+            elif condition == 'direction': # shuffle the order of the features so that there is no structure
+                np.random.shuffle(order)
+            data.loc[data['task_id'] == task, 'input'] = data.loc[data['task_id'] == task, 'input'].apply(lambda x: str(np.array([x[order_idx]*sign[order_idx] for _, order_idx in enumerate(order)]).tolist()))                                                                              
+    
+    data.to_csv(f'{env_name}_pseudo{condition}.csv', index=False)

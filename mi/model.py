@@ -85,14 +85,14 @@ class TransformerDecoderRegression(nn.Module):
             model_preds = torch.concat([model_preds[i, :seq_len] for i, seq_len in enumerate(
                 sequence_lengths)], axis=0).squeeze().float()
             true_targets = torch.concat(
-                targets, axis=0).float().to(self.device)
+                targets, axis=0).float().to(self.device) if isinstance(targets, list) else targets.reshape(-1).float().to(self.device)
             return criterion(model_preds, true_targets)
         elif self.loss == 'nll':
             predictive_posterior = self.forward(
                 packed_inputs, sequence_lengths)
+            true_targets = torch.stack(targets).unsqueeze(2).float().to(self.device) if isinstance(targets, list) else targets.unsqueeze(2).float().to(self.device)
             return - \
-                predictive_posterior.log_prob(
-                    torch.stack(targets).unsqueeze(2).float().to(self.device)).mean()
+                predictive_posterior.log_prob(true_targets).mean()
 
 
 class TransformerDecoderClassification(nn.Module):
@@ -174,8 +174,7 @@ class TransformerDecoderClassification(nn.Module):
             model_choices = self.forward(packed_inputs, sequence_lengths)
             model_choices = torch.concat([model_choices[i, :seq_len] for i, seq_len in enumerate(
                 sequence_lengths)], axis=0).squeeze().float()
-            true_choices = targets.reshape(-1,
-                                           1).float().to(self.device).squeeze()
+            true_choices = targets.reshape(-1).float().to(self.device).squeeze()
             return criterion(model_choices, true_choices)
         else:
             theta = self.forward(
@@ -276,10 +275,32 @@ class TransformerDecoderLinearWeights(nn.Module):
         else:
             theta = self.forward(
                 packed_inputs, sequence_lengths)
+            theta = torch.clamp(theta, min=0.0, max=1.0)
             predictive_posterior = Bernoulli(theta)
             return - predictive_posterior.log_prob(
                 targets.unsqueeze(2).float().to(self.device)).mean()
 
+    def get_mlp_weights(self):
+        
+        mlp_weights = []
+        for layer in self.transformer.layers:
+            mlp_weights.extend([layer.linear1.weight, layer.linear1.bias, layer.linear2.weight, layer.linear2.bias])
+        return mlp_weights
+    
+    def get_self_attention_weights(self):
+        
+        self_attention_weights = []
+        for layer in self.transformer.layers:
+            self_attention_weights.extend([layer.self_attn.in_proj_weight, layer.self_attn.in_proj_bias, layer.self_attn.out_proj.weight, layer.self_attn.out_proj.bias])
+        return self_attention_weights
+ 
+class TransformerDecoderLinearWeightsConstrained(TransformerDecoderLinearWeights):
+    """ Meta-learning model with transformer core that predicts linear weights for decision-making task with a constraint """
+
+    def __init__(self, num_input, num_output, num_hidden, num_layers=1, d_model=256, num_head=1, dropout=0.1, beta=1, max_steps=20, loss='bce', device='cpu') -> None:
+        super(TransformerDecoderLinearWeightsConstrained, self).__init__(num_input, num_output, num_hidden, num_layers, d_model, num_head, dropout, beta, max_steps, loss, device)
+        self.lambda_ = nn.Parameter(-5 * torch.ones([]), requires_grad=True)
+    
 class TransformerDecoder(nn.Module):
     """ Meta-learning model with transformer core for the categorisation task """
 
