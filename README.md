@@ -16,10 +16,9 @@ Human cognition is profoundly shaped by the environments in which it unfolds. Ye
 
 ```bash
 .
-. (project root)
-├── .vscode/
 ├── categorisation/
 │   ├── data/
+│   ├── baselines/
 │   ├── trained_models/
 │   ├── figures.ipynb
 │   ├── make_plots.py
@@ -40,7 +39,6 @@ Human cognition is profoundly shaped by the environments in which it unfolds. Ye
 │   ├── plots.py
 │   └── utils.py
 ├── mi/
-│   ├── ablate_model.py
 │   ├── envs.py
 │   ├── evaluate.py
 │   ├── fit_humans.py
@@ -53,18 +51,13 @@ Human cognition is profoundly shaped by the environments in which it unfolds. Ye
 │   ├── model.py
 │   ├── model_utils.py
 │   └── utils.py
-├── scripts/
-│   ├── generate_plots.sh
-│   ├── generate_results_bermi_cogsci.sh
-│   ├── generate_tasks.sh
-│   ├── generate_tasks_llama.sh
-│   └── …
 ├── taskgeneration/
 │   ├── generate_data.py
 │   ├── llms.py
 │   ├── prompts.py
 │   ├── synthesize_problems.py
 │   └── utils.py
+├── scripts/
 ├── .gitignore
 ├── LICENSE
 ├── README.md
