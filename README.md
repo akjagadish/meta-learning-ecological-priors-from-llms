@@ -1,4 +1,4 @@
-[![arXiv Badge](https://img.shields.io/badge/arXiv-B31B1B?logo=arxiv&logoColor=fff&style=for-the-badge)]() 
+[![arXiv Badge](https://img.shields.io/badge/arXiv-B31B1B?logo=arxiv&logoColor=fff&style=for-the-badge)](https://arxiv.org/pdf/2509.00116) 
 
 
 # Meta-learning ecological priors from large language models explains human learning and decision making
@@ -164,8 +164,14 @@ This project is for research purposes only and should not be used for any other 
 ## Citation
 
 If you use our work, please cite our
-[work]() as such:
+[work](https://arxiv.org/pdf/2509.00116) as such:
 
 ``` bibtex
-Coming soon!
+@article{jagadish2025meta,
+  title={Meta-learning ecological priors from large language models explains human learning and decision making},
+  author={Jagadish, Akshay K and Thalmann, Mirko and Coda-Forno, Julian and Binz, Marcel and Schulz, Eric},
+  journal={arXiv preprint arXiv},
+  volume={2509},
+  year={2025}
+}
 ```
