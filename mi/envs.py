@@ -8,6 +8,7 @@ import torch.multiprocessing as mp
 from sklearn.preprocessing import MinMaxScaler
 from model_utils import MLP
 import math
+import pandas as pd
 SYS_PATH = '/u/ajagadish/ermi/'
 
 
@@ -1314,6 +1315,178 @@ class DeLosh1997(nn.Module):
         
         return packed_inputs.to(self.device), sequence_lengths, targets, inputs, kernel_choices
 
+class HandCraftedFunctions(nn.Module):
+    """
+    Generate function learning tasks for evaluation of ERMI and humans on interpolation and extrapolation
+    """
+
+    def __init__(self, max_steps=20, num_dims=1, scale=0.5, dynamic_scaling=False, batch_size=None, mode='test',  device='cpu', noise=0., normalize_inputs=True, save_data=False):
+        """
+        Initialise the environment
+        Args:
+            data: path to csv file containing data
+            max_steps: number of steps in each episode
+            num_dims: number of dimensions in each input
+            batch_size: number of tasks in each batch
+        """
+        super(HandCraftedFunctions, self).__init__()
+    
+        self.device = torch.device(device)   
+        self.max_steps = max_steps
+        self.num_choices = 1
+        self.num_dims = num_dims
+        self.mode = mode
+        self.batch_size = batch_size
+        self.scale = scale
+        self.dynamic_scaling = dynamic_scaling
+        self.noise = noise
+        self.normalize = normalize_inputs
+        self.save_data = save_data
+        self.register_buffer('sin_freqs', torch.tensor([1, 2, 4, 6], dtype=torch.float32))
+        self.register_buffer('sin_phases', torch.tensor([0.]*4))
+        self.register_buffer('sin_amps', torch.tensor([10.]*4))
+        self.register_buffer('sin_offsets', torch.tensor([10.]*4))
+        self.register_buffer('lin_weights', torch.tensor([4., 6., 8., 10.], dtype=torch.float32))
+        self.register_buffer('lin_intercepts', torch.tensor([0., 5., 10., 15.], dtype=torch.float32))
+    
+    def exponential(self, x, weight, intercept, scale):
+        return weight[:, None] * torch.exp(scale[:, None] * x) + intercept[:, None]
+
+    def sinusoidal(self, x):
+        """
+        Vectorized sinusoidal function that handles batch broadcasting.
+        """
+        
+        idxs = torch.arange(len(self.sin_freqs), device=self.device) % len(self.sin_freqs)
+        freqs = self.sin_freqs[idxs].unsqueeze(1)
+        phs = self.sin_phases[idxs].unsqueeze(1)
+        amps = self.sin_amps[idxs].unsqueeze(1)
+        offs = self.sin_offsets[idxs].unsqueeze(1)
+    
+        return amps * torch.sin(x.unsqueeze(0) * freqs * 2 * np.pi - phs) + offs
+    
+    def positive_linear(self, x):
+        
+        idxs = torch.arange(len(self.lin_weights), device=self.device) % len(self.lin_weights)
+        weights = self.lin_weights[idxs].unsqueeze(1)
+        intercepts = self.lin_intercepts[idxs].unsqueeze(1)
+        return weights * x + intercepts
+
+    def negative_linear(self, x):
+
+        idxs = torch.arange(len(self.lin_weights), device=self.device) % len(self.lin_weights)
+        weights = self.lin_weights[idxs].unsqueeze(1)
+        intercepts = self.lin_intercepts[idxs].unsqueeze(1)
+        return -weights * x + intercepts
+
+    def sample_function(self, function, x):
+
+        if function == 'periodic':
+            targets = self.sinusoidal(x).to(self.device)
+        elif function == 'pos_linear':
+            targets = self.positive_linear(x).to(self.device)
+        elif function == 'neg_linear':
+            targets = self.negative_linear(x).to(self.device)
+        elif function == 'pos_neg_linear':
+            pos_linear = self.positive_linear(x[:int(self.max_steps/2)]).to(self.device)
+            self.lin_weights = self.lin_weights[torch.randperm(len(self.lin_weights))]
+            self.lin_intercepts = self.lin_intercepts[torch.randperm(len(self.lin_intercepts))]
+            neg_linear = self.negative_linear(x[int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((pos_linear, neg_linear), dim=1)
+        elif function == 'neg_pos_linear':
+            neg_linear = self.negative_linear(x[:int(self.max_steps/2)]).to(self.device)
+            self.lin_weights = self.lin_weights[torch.randperm(len(self.lin_weights))]
+            self.lin_intercepts = self.lin_intercepts[torch.randperm(len(self.lin_intercepts))]
+            pos_linear = self.positive_linear(x[int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((neg_linear, pos_linear), dim=1)
+        elif function == 'pos_linear_periodic':
+            pos_linear = self.positive_linear(x[:int(self.max_steps/2)]).to(self.device)
+            sinusoidal = self.sinusoidal(x[:int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((pos_linear, sinusoidal), dim=1)
+        elif function == 'periodic_pos_linear':
+            sinusoidal = self.sinusoidal(x[:int(self.max_steps/2)]).to(self.device)
+            pos_linear = self.positive_linear(x[int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((sinusoidal, pos_linear), dim=1)
+        elif function == 'neg_linear_periodic':
+            neg_linear = self.negative_linear(x[:int(self.max_steps/2)]).to(self.device)
+            sinusoidal = self.sinusoidal(x[:int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((neg_linear, sinusoidal), dim=1)
+        elif function == 'periodic_neg_linear':
+            sinusoidal = self.sinusoidal(x[:int(self.max_steps/2)]).to(self.device)
+            neg_linear = self.negative_linear(x[int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((sinusoidal, neg_linear), dim=1)
+        elif function == 'periodic_periodic':
+            sinusoidal1 = self.sinusoidal(x[:int(self.max_steps/2)]).to(self.device)
+            self.sin_freqs = self.sin_freqs[torch.randperm(len(self.sin_freqs))]
+            self.sin_phases = self.sin_phases[torch.randperm(len(self.sin_phases))]
+            sinusoidal2 = self.sinusoidal(x[:int(self.max_steps/2)]).to(self.device)
+            targets = torch.cat((sinusoidal1, sinusoidal2), dim=1)
+        else:
+            raise ValueError(f"Unknown function type: {self.function}")
+
+    
+        return targets, x
+
+    def sample_batch(self, function=None):
+        
+        x = torch.linspace(0, 1, self.max_steps, device=self.device)#[torch.randperm(self.max_steps)]
+        if function is None:
+            kernel_types = ['pos_linear', 'neg_linear', 'periodic', 'pos_neg_linear', 'neg_pos_linear', 'pos_linear_periodic', 'periodic_pos_linear', 'neg_linear_periodic', 'periodic_neg_linear', 'periodic_periodic']
+            # prior_probs = [1] * len(kernel_types)
+            # kernel_choices = np.random.choice(kernel_types, size=len(kernel_types), p=np.array(prior_probs) / sum(prior_probs))
+            for idx, function in enumerate(kernel_types):
+                targets, inputs = self.sample_function(function, x)
+                targets += self.noise * torch.randn(self.max_steps).to(self.device)
+                inputs =  x.tile((len(self.lin_weights),)).reshape(len(self.lin_weights), self.max_steps).to(self.device)
+                # randomize input and target order for each function type
+                perm = torch.randperm(len(targets))
+                targets = targets[perm]
+                inputs = inputs[perm]
+                if idx > 0:
+                    all_targets = torch.cat((all_targets, targets), dim=0)
+                    all_inputs = torch.cat((all_inputs, inputs), dim=0)
+                else:
+                    all_targets = targets
+                    all_inputs = inputs
+            targets = all_targets
+            inputs = all_inputs
+            self.batch_size = len(targets)
+            # repeat each element in kernel_choices len(self.lin_weights) times
+            kernel_types = [kt for kt in kernel_types for _ in range(len(self.lin_weights))]
+            if self.save_data:
+                self.save_data_to_csv(kernel_types, inputs, targets)
+        else:
+            targets, inputs = self.sample_function(function, x)
+            targets += self.noise * torch.randn(self.batch_size, self.max_steps).to(self.device)
+            inputs =  x.tile((self.batch_size,)).reshape(self.batch_size, self.max_steps).to(self.device)
+
+        # normalize the data
+        def stacked_normalized(data, scale):
+            data_min = data.min(dim=1, keepdim=True).values
+            data_max = data.max(dim=1, keepdim=True).values
+            return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
+
+        targets = stacked_normalized(targets, 0.5) if self.normalize else targets
+        inputs = stacked_normalized(inputs, 0.5) if self.normalize else inputs
+        shifted_targets = torch.concatenate((torch.zeros((self.batch_size, 1), device=self.device), targets[:, :-1]), dim=1)
+        stacked_task_features = torch.cat((inputs.unsqueeze(2), shifted_targets.unsqueeze(2)), dim=2)
+        sequence_lengths = [len(task_input_features)
+                            for task_input_features in inputs]
+        packed_inputs = rnn_utils.pad_sequence(
+            stacked_task_features, batch_first=True)
+        
+        return packed_inputs.to(self.device), sequence_lengths, targets, inputs, kernel_types
+
+    def save_data_to_csv(self, kernel_types, inputs, targets):
+        data_dict = {'function_type': [], 'input': [], 'target': []}
+        for idx in range(len(kernel_types)):
+            for step in range(self.max_steps):
+                data_dict['function_type'].append(kernel_types[idx])
+                data_dict['input'].append(inputs[idx, step].item())
+                data_dict['target'].append(targets[idx, step].item())
+        df = pd.DataFrame(data_dict)
+        df.to_csv('handcrafted_function_data.csv', index=False)
+    
 class EvaluateFunctionLearning(nn.Module):
     """
     Generate function learning tasks for evaluation of interpolation
@@ -1910,4 +2083,3 @@ class JohanssensTask(nn.Module):
             prototype_list.append(self.prototypes) 
 
         return inputs_list, targets_list, prototype_list, stimulus_ids_list  
-       
