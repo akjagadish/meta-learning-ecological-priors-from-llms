@@ -9,28 +9,32 @@
 #SBATCH --mail-user=akshaykjagadish@gmail.com
 cd ~/ermi/
 module purge
-module load anaconda/3/2023.03
+module load anaconda/3/2021.11
 module load gcc/13 impi/2021.9
 module load cuda/12.1
 module load pytorch/gpu-cuda-12.1/2.2.0
-pip3 install --user ipdb torch transformers tensorboard ipdb tqdm schedulefree
+pip3 install --user ipdb torch transformers tensorboard ipdb tqdm schedulefree scikit-learn pandas seaborn matplotlib
 
 ## little2022
-python mi/simulate_model.py --exp-id 1 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
-python mi/simulate_model.py --exp-id 1 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+# python mi/simulate_model.py --exp-id 1 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+# python mi/simulate_model.py --exp-id 1 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
 
-python mi/simulate_model.py --exp-id 2 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
-python mi/simulate_model.py --exp-id 2 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+# python mi/simulate_model.py --exp-id 2 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+# python mi/simulate_model.py --exp-id 2 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
 
-python mi/simulate_model.py --exp-id 3 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
-python mi/simulate_model.py --exp-id 3 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+# python mi/simulate_model.py --exp-id 3 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+# python mi/simulate_model.py --exp-id 3 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
 
-python mi/simulate_model.py --exp-id 4 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
-python mi/simulate_model.py --exp-id 4 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+# python mi/simulate_model.py --exp-id 4 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+# python mi/simulate_model.py --exp-id 4 --paradigm functionlearning --task-name little2022 --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
 
 # evaluatefunctionlearning on specfic tasks
-python mi/simulate_model.py --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
-python mi/simulate_model.py --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+# python mi/simulate_model.py --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+# python mi/simulate_model.py --paradigm functionlearning --task-name evaluatefunctionlearning --policy greedy --use-base-model-name --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+
+# handcrafted_functions
+python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name handcrafted_functions --policy greedy --use-filename --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name handcrafted_functions --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0    
 
 ## kwantes2006
 # python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name kwantes2006 --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
