@@ -1346,8 +1346,9 @@ class HandCraftedFunctions(nn.Module):
         self.register_buffer('sin_phases', torch.tensor([0.]*4))
         self.register_buffer('sin_amps', torch.tensor([10.]*4))
         self.register_buffer('sin_offsets', torch.tensor([10.]*4))
-        self.register_buffer('lin_weights', torch.tensor([4., 6., 8., 10.], dtype=torch.float32))
-        self.register_buffer('lin_intercepts', torch.tensor([0., 5., 10., 15.], dtype=torch.float32))
+        self.register_buffer('lin_weights', torch.tensor([1., 2., 3., 4.], dtype=torch.float32)*2)
+        self.register_buffer('lin_intercepts', torch.tensor([0.5, 0.75, 1.0, 1.25], dtype=torch.float32))
+        self.register_buffer('pos_neg_intercepts', torch.tensor([0.25, 0.5, 0.75, 1.0], dtype=torch.float32)/5)
     
     def exponential(self, x, weight, intercept, scale):
         return weight[:, None] * torch.exp(scale[:, None] * x) + intercept[:, None]
@@ -1357,7 +1358,7 @@ class HandCraftedFunctions(nn.Module):
         Vectorized sinusoidal function that handles batch broadcasting.
         """
         
-        idxs = torch.arange(len(self.sin_freqs), device=self.device) % len(self.sin_freqs)
+        idxs = torch.arange(len(self.sin_freqs), device=self.device) #% len(self.sin_freqs)
         freqs = self.sin_freqs[idxs].unsqueeze(1)
         phs = self.sin_phases[idxs].unsqueeze(1)
         amps = self.sin_amps[idxs].unsqueeze(1)
@@ -1365,18 +1366,18 @@ class HandCraftedFunctions(nn.Module):
     
         return amps * torch.sin(x.unsqueeze(0) * freqs * 2 * np.pi - phs) + offs
     
-    def positive_linear(self, x):
+    def positive_linear(self, x, linpos=False):
         
-        idxs = torch.arange(len(self.lin_weights), device=self.device) % len(self.lin_weights)
+        idxs = torch.arange(len(self.lin_weights), device=self.device) #% len(self.lin_weights)
         weights = self.lin_weights[idxs].unsqueeze(1)
-        intercepts = self.lin_intercepts[idxs].unsqueeze(1)
+        intercepts = self.lin_intercepts[idxs].unsqueeze(1) if not linpos else self.pos_neg_intercepts[idxs].unsqueeze(1)
         return weights * x + intercepts
 
-    def negative_linear(self, x):
+    def negative_linear(self, x, linpos=False):
 
-        idxs = torch.arange(len(self.lin_weights), device=self.device) % len(self.lin_weights)
+        idxs = torch.arange(len(self.lin_weights), device=self.device) #% len(self.lin_weights)
         weights = self.lin_weights[idxs].unsqueeze(1)
-        intercepts = self.lin_intercepts[idxs].unsqueeze(1)
+        intercepts = self.lin_intercepts[idxs].unsqueeze(1) if not linpos else self.pos_neg_intercepts[idxs].unsqueeze(1)
         return -weights * x + intercepts
 
     def sample_function(self, function, x):
@@ -1390,14 +1391,14 @@ class HandCraftedFunctions(nn.Module):
         elif function == 'pos_neg_linear':
             pos_linear = self.positive_linear(x[:int(self.max_steps/2)]).to(self.device)
             self.lin_weights = self.lin_weights[torch.randperm(len(self.lin_weights))]
-            self.lin_intercepts = self.lin_intercepts[torch.randperm(len(self.lin_intercepts))]
-            neg_linear = self.negative_linear(x[int(self.max_steps/2):]).to(self.device)
+            self.pos_neg_intercepts = self.pos_neg_intercepts[torch.randperm(len(self.pos_neg_intercepts))]
+            neg_linear = self.negative_linear(x[int(self.max_steps/2):], linpos=True).to(self.device)
             targets = torch.cat((pos_linear, neg_linear), dim=1)
         elif function == 'neg_pos_linear':
             neg_linear = self.negative_linear(x[:int(self.max_steps/2)]).to(self.device)
             self.lin_weights = self.lin_weights[torch.randperm(len(self.lin_weights))]
-            self.lin_intercepts = self.lin_intercepts[torch.randperm(len(self.lin_intercepts))]
-            pos_linear = self.positive_linear(x[int(self.max_steps/2):]).to(self.device)
+            self.pos_neg_intercepts = self.pos_neg_intercepts[torch.randperm(len(self.pos_neg_intercepts))]
+            pos_linear = self.positive_linear(x[int(self.max_steps/2):], linpos=True).to(self.device)
             targets = torch.cat((neg_linear, pos_linear), dim=1)
         elif function == 'pos_linear_periodic':
             pos_linear = self.positive_linear(x[:int(self.max_steps/2)]).to(self.device)
@@ -1419,8 +1420,20 @@ class HandCraftedFunctions(nn.Module):
             sinusoidal1 = self.sinusoidal(x[:int(self.max_steps/2)]).to(self.device)
             self.sin_freqs = self.sin_freqs[torch.randperm(len(self.sin_freqs))]
             self.sin_phases = self.sin_phases[torch.randperm(len(self.sin_phases))]
-            sinusoidal2 = self.sinusoidal(x[:int(self.max_steps/2)]).to(self.device)
+            sinusoidal2 = self.sinusoidal(x[int(self.max_steps/2):]).to(self.device)
             targets = torch.cat((sinusoidal1, sinusoidal2), dim=1)
+        elif function == 'pos_pos_linear':
+            pos_linear1 = self.positive_linear(x[:int(self.max_steps/2)]).to(self.device)
+            self.lin_weights = self.lin_weights[torch.randperm(len(self.lin_weights))]
+            self.lin_intercepts = self.lin_intercepts[torch.randperm(len(self.lin_intercepts))]
+            pos_linear2 = self.positive_linear(x[int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((pos_linear1, pos_linear2), dim=1)
+        elif function == 'neg_neg_linear':
+            neg_linear1 = self.negative_linear(x[:int(self.max_steps/2)]).to(self.device)
+            self.lin_weights = self.lin_weights[torch.randperm(len(self.lin_weights))]
+            self.lin_intercepts = self.lin_intercepts[torch.randperm(len(self.lin_intercepts))]
+            neg_linear2 = self.negative_linear(x[int(self.max_steps/2):]).to(self.device)
+            targets = torch.cat((neg_linear1, neg_linear2), dim=1)
         else:
             raise ValueError(f"Unknown function type: {self.function}")
 
@@ -1429,9 +1442,13 @@ class HandCraftedFunctions(nn.Module):
 
     def sample_batch(self, function=None):
         
-        x = torch.linspace(0, 1, self.max_steps, device=self.device)#[torch.randperm(self.max_steps)]
+        x = torch.cat((torch.linspace(0., 0.5, self.max_steps//2, device=self.device), torch.linspace(0.5, 1.0, self.max_steps//2, device=self.device)), dim=0) #[torch.randperm(self.max_steps)]
         if function is None:
-            kernel_types = ['pos_linear', 'neg_linear', 'periodic', 'pos_neg_linear', 'neg_pos_linear', 'pos_linear_periodic', 'periodic_pos_linear', 'neg_linear_periodic', 'periodic_neg_linear', 'periodic_periodic']
+            kernel_types =  ['pos_linear', 'neg_linear', 'periodic', 
+                             'pos_neg_linear', 'neg_pos_linear', \
+                             'pos_linear_periodic', 'periodic_pos_linear', 'neg_linear_periodic',\
+                             'periodic_neg_linear', 'periodic_periodic', 
+                             'pos_pos_linear', 'neg_neg_linear']
             # prior_probs = [1] * len(kernel_types)
             # kernel_choices = np.random.choice(kernel_types, size=len(kernel_types), p=np.array(prior_probs) / sum(prior_probs))
             for idx, function in enumerate(kernel_types):
@@ -1452,7 +1469,7 @@ class HandCraftedFunctions(nn.Module):
             inputs = all_inputs
             self.batch_size = len(targets)
             # repeat each element in kernel_choices len(self.lin_weights) times
-            kernel_types = [kt for kt in kernel_types for _ in range(len(self.lin_weights))]
+            kernel_types = [kt for kt in kernel_types for _ in range(len(self.lin_weights) if 'linear' in kt else len(self.sin_freqs))]
             if self.save_data:
                 self.save_data_to_csv(kernel_types, inputs, targets)
         else:
@@ -1466,8 +1483,8 @@ class HandCraftedFunctions(nn.Module):
             data_max = data.max(dim=1, keepdim=True).values
             return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
 
-        targets = stacked_normalized(targets, 0.5) if self.normalize else targets
-        inputs = stacked_normalized(inputs, 0.5) if self.normalize else inputs
+        targets = stacked_normalized(targets, self.scale) if self.normalize else targets
+        inputs = stacked_normalized(inputs, self.scale) if self.normalize else inputs
         shifted_targets = torch.concatenate((torch.zeros((self.batch_size, 1), device=self.device), targets[:, :-1]), dim=1)
         stacked_task_features = torch.cat((inputs.unsqueeze(2), shifted_targets.unsqueeze(2)), dim=2)
         sequence_lengths = [len(task_input_features)

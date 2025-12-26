@@ -174,7 +174,7 @@ def sample_model(args):
         task_features = {'model_max_steps': args.model_max_steps, 'synthetic': True}
         env.num_samples = 2
     elif args.task_name == 'handcrafted_functions':
-        env = HandCraftedFunctions(max_steps=20)
+        env = HandCraftedFunctions(max_steps=20, scale=0.25)
         env.num_samples = 1
         task_features = {'model_max_steps': 25, 'synthetic': True}
     else:
