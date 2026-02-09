@@ -174,3 +174,4 @@ core*
 .gitignore
 wandb/*
 TODO
+ermi/*
