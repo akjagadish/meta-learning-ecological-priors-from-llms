@@ -36,6 +36,14 @@ pip3 install --user ipdb torch transformers tensorboard ipdb tqdm schedulefree s
 python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name handcrafted_functions --policy greedy --use-filename --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
 python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name handcrafted_functions --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0    
 
+# experiment_functions_interpolation
+python mi/simulate_model.py --paradigm functionlearning   --task-name experiment_functions_interpolation --policy greedy  --use-filename --model-name  env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+python mi/simulate_model.py --paradigm functionlearning   --task-name experiment_functions_interpolation --policy greedy  --use-filename --model-name  env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+
+# experiment_functions_extrapolation
+python mi/simulate_model.py --paradigm functionlearning   --task-name experiment_functions_extrapolation --policy greedy  --use-filename --model-name  env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
+python mi/simulate_model.py --paradigm functionlearning   --task-name experiment_functions_extrapolation --policy greedy  --use-filename --model-name  env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
+
 ## kwantes2006
 # python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name kwantes2006 --policy greedy --use-filename --model-name env=claude_dim1_maxsteps25_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.0_shuffleTrue_run=0
 # python mi/simulate_model.py --model_max_steps 25 --paradigm functionlearning --task-name kwantes2006 --policy greedy --use-filename --model-name env=synthetic_dim1_model=transformer_num_episodes100000_num_hidden=256_lr0.0003_num_layers=6_d_model=64_num_head=8_noise0.01_shuffleTrue_run=0_synthetic
