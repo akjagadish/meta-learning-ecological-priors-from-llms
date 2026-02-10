@@ -188,7 +188,8 @@ def sample_model(args):
             n_train_per_seg=10, n_test_per_seg=5,
             noise_std=1.0, seed=42, scale=0.50,
             save_data=True,
-            output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/experiment_functions_stimuli_interpolation.json",
+            output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/interpolation/experiment_functions_stimuli_interpolation.json",
+            figures_output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/interpolation/plots/",
         )
         env.num_samples = 1
         env._eval_mode = 'interpolation'
@@ -198,7 +199,8 @@ def sample_model(args):
             n_train_per_seg=10, n_test_per_seg=5,
             noise_std=1.0, seed=42, scale=0.50,
             save_data=True,
-            output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/experiment_functions_stimuli_extrapolation.json",
+            output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/extrapolation/experiment_functions_stimuli_extrapolation.json",
+            figures_output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/extrapolation/plots/",
         )
         env.num_samples = 1
         env._eval_mode = 'extrapolation'
