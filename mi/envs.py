@@ -9,6 +9,9 @@ from sklearn.preprocessing import MinMaxScaler
 from model_utils import MLP
 import math
 import pandas as pd
+import json
+import matplotlib.pyplot as plt
+from pathlib import Path
 SYS_PATH = '/u/ajagadish/ermi/'
 
 
@@ -1504,6 +1507,510 @@ class HandCraftedFunctions(nn.Module):
         df = pd.DataFrame(data_dict)
         df.to_csv('handcrafted_function_data.csv', index=False)
     
+class EvaluateFunctionLearning(nn.Module):
+    """
+
+class ExperimentFunctions(nn.Module):
+    """
+    Generate positive-linear function-learning tasks for evaluating ERMI
+    on interpolation and extrapolation with a human-experiment-compatible
+    spatial segment design.
+
+    Functions: y = slope * x + offset  for slope in {0.3, 0.4, 0.5, 0.6, 0.7}
+    Domain: x in [0, 100], y in [0, 100]
+
+    Training inputs are sampled from two interior segments and test inputs
+    from three boundary/gap segments.  Stimuli are generated once at
+    construction time so that train/test splits are fixed.
+
+    Parameters
+    ----------
+    n_train_per_seg : int
+        Number of training samples per segment (total train = 2 * this * n_repeats).
+    n_test_per_seg : int
+        Number of test samples per segment (total test = 3 * this * n_repeats_test).
+    train_segments : list of (lo, hi) tuples
+        Inclusive ranges for training input sampling.
+    test_segments : list of (lo, hi) tuples
+        Inclusive ranges for test input sampling.
+    n_repeats : int
+        Tile training pairs this many times.
+    n_repeats_test : int
+        Tile test pairs this many times.
+    noise_std : float
+        Gaussian jitter added to training outputs (test outputs are noise-free).
+    with_replacement : bool
+        Whether to sample inputs with replacement.
+    seed : int
+        Random seed for reproducibility.
+    scale : float
+        Half-range for normalisation: values are mapped to [-scale, +scale].
+    offset : float
+        Intercept for the linear functions.
+    save_data : bool
+        If True, ``save_experiment_json`` is called automatically after
+        stimuli generation.
+    output_path : str
+        Path for auto-saved JSON (only used when save_data=True).
+    """
+
+    def __init__(
+        self,
+        n_train_per_seg: int = 10,
+        n_test_per_seg: int = 5,
+        train_segments: list = None,
+        test_segments: list = None,
+        n_repeats: int = 1,
+        n_repeats_test: int = 1,
+        noise_std: float = 5.0,
+        with_replacement: bool = False,
+        seed: int = 42,
+        scale: float = 0.5,
+        c: float = 50.0,
+        save_data: bool = False,
+        output_path: str = "stimuli/experiment_functions.json",
+        figures_output_path: str = "plots/",
+        device: str = "cpu",
+        row_norm: bool = False,
+    ):
+        super(ExperimentFunctions, self).__init__()
+
+        self.device = torch.device(device)
+        self.num_dims = 1
+        self.num_choices = 1
+        self.num_samples = 1  # single call to sample_batch is enough
+        self.input_range = (0.0, 100.0)
+        self.output_range = (0.0, 100.0)
+        self.row_norm = row_norm
+
+        # experiment design parameters
+        self.n_train_per_seg = n_train_per_seg
+        self.n_test_per_seg = n_test_per_seg
+        self.train_segments = [(20, 45), (55, 80)] if train_segments is None else train_segments
+        self.test_segments = [(0, 20), (45, 55), (80, 100)] if test_segments is None else test_segments
+        self.n_repeats = n_repeats
+        self.n_repeats_test = n_repeats_test
+        self.noise_std = noise_std
+        self.with_replacement = with_replacement
+        self.seed = seed
+        self.scale = scale
+        self.c = c
+        self.save_data = save_data
+        self.output_path = output_path
+        self._eval_mode = None  # default mode for sample_batch
+
+        # function family: positive linear slopes
+        self.register_buffer(
+            "slopes", torch.tensor([0.5, 0.7, -0.50, -0.7], dtype=torch.float32) #-0.3, 0.4, 0.5, 0.6, 0.7/0.3, 0.4, 0.5, 0.6, 
+        )
+        self.register_buffer("offset", torch.tensor([50, 30, 50, 30], dtype=torch.float32))
+        self.n_functions = len(self.slopes)
+
+        # derived counts
+        self.n_train = len(self.train_segments) * self.n_train_per_seg * self.n_repeats
+        self.n_test = len(self.test_segments) * self.n_test_per_seg * self.n_repeats_test
+
+        # generate and fix stimuli
+        self._generate_stimuli()
+
+        if self.save_data:
+            self.save_experiment_json(self.output_path)
+            self.plot_stimuli(self.figures_output_path)
+    # ------------------------------------------------------------------
+    # Stimuli generation
+    # ------------------------------------------------------------------
+
+    def _sample_inputs(self, segments, n_per_seg, rng):
+        """Sample integer inputs from each segment, sort within segment, concatenate."""
+        parts = []
+        for lo, hi in segments:
+            pool = np.arange(int(lo), int(hi) + 1)
+            if not self.with_replacement and n_per_seg > len(pool):
+                raise ValueError(
+                    f"Cannot draw {n_per_seg} samples without replacement "
+                    f"from [{lo}, {hi}] (only {len(pool)} values)."
+                )
+            drawn = rng.choice(pool, size=n_per_seg, replace=self.with_replacement)
+            drawn.sort()
+            parts.append(drawn)
+        return np.concatenate(parts)
+
+    def _linear(self, slope, x, offset):
+        """Evaluate piecewise linear with sign-aware offset.
+
+        Positive slopes:  y = slope * x,       after changepoint: y = slope * x + offset
+        Negative slopes:  y = slope * x + 100,  after changepoint: y = slope * x + 100 - offset
+
+        The intercept of 100 for negative slopes keeps values in [0, 100]
+        (mirroring the positive case).  The offset magnitude is always taken
+        as abs(self.offset) so the constructor value can be signed or unsigned.
+        """
+        if slope >= 0:
+            y = slope * x
+            y = np.where(x >= self.c, y + abs(offset), y)
+        else:
+            y = slope * x + 100.0
+            y = np.where(x >= self.c, y - abs(offset), y)
+        return y
+
+    def _generate_stimuli(self):
+        """
+        Sample train/test x-values, evaluate all slopes, add noise to
+        training outputs, and store everything on ``self``.
+        """
+        rng = np.random.default_rng(self.seed)
+
+        # --- sample x-values (shared across all slopes) ----------------
+        base_train_x = self._sample_inputs(
+            self.train_segments, self.n_train_per_seg, rng
+        )
+        base_test_x = self._sample_inputs(
+            self.test_segments, self.n_test_per_seg, rng
+        )
+
+        # tile for repeats
+        train_x = np.tile(base_train_x, self.n_repeats)
+        test_x = np.tile(base_test_x, self.n_repeats_test)
+
+        # --- evaluate each slope ----------------------------------------
+        slopes_np = self.slopes.cpu().numpy()
+        offset_np = self.offset.cpu().numpy()
+
+        # train_y_clean[i] = slope_i * train_x + offset   shape [n_functions, n_train]
+        train_y_clean = np.array(
+            [self._linear(s, train_x.astype(float), offset) for s, offset in zip(slopes_np, offset_np)]
+        )
+        # add per-function noise (same rng stream)
+        train_noise = rng.normal(0, self.noise_std, size=train_y_clean.shape)
+        train_y_noisy = np.clip(train_y_clean + train_noise, 0, 100)
+
+        # test outputs are noise-free
+        test_y_clean = np.array(
+            [self._linear(s, test_x.astype(float), offset) for s, offset in zip(slopes_np, offset_np)]
+        )
+
+        # --- store as tensors -------------------------------------------
+        self.train_x = torch.tensor(train_x, dtype=torch.float32, device=self.device)
+        self.test_x = torch.tensor(test_x, dtype=torch.float32, device=self.device)
+
+        # [n_functions, n_train]
+        self.train_y_clean = torch.tensor(
+            train_y_clean, dtype=torch.float32, device=self.device
+        )
+        self.train_y_noisy = torch.tensor(
+            train_y_noisy, dtype=torch.float32, device=self.device
+        )
+        # [n_functions, n_test]
+        self.test_y = torch.tensor(
+            test_y_clean, dtype=torch.float32, device=self.device
+        )
+
+    # ------------------------------------------------------------------
+    # Normalisation (per-row, matching SyntheticFunctionlearningTask training)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_per_row(data, scale):
+        """Per-row min-max normalisation to [-scale, +scale].
+
+        This matches the normalisation used during training of the
+        SyntheticFunctionlearningTask / ERMI models:
+            2 * scale * (x - x_min) / (x_max - x_min) - scale
+        """
+        data_min = data.min(dim=1, keepdim=True).values
+        data_max = data.max(dim=1, keepdim=True).values
+        return 2 * scale * (data - data_min) / (data_max - data_min + 1e-6) - scale
+
+    # ------------------------------------------------------------------
+    # Batch construction for model evaluation
+    # ------------------------------------------------------------------
+
+    def sample_batch(self):
+        """
+        Build packed sequences following the DeLosh1997 pattern.
+
+        Each batch row is:
+            x = [train_x_0, ..., train_x_{N-1}, query_x]      length N+1
+            y = [train_y_0, ..., train_y_{N-1}, query_y_clean] length N+1
+
+        The model sees noisy training y as context (via shifted_targets)
+        and is evaluated on the noise-free query y at the last timestep.
+
+        Parameters
+        ----------
+        mode : str
+            ``'interpolation'`` — query points are the training x-values.
+            ``'extrapolation'`` — query points are the test x-values.
+
+        Returns
+        -------
+        packed_inputs : Tensor [B, N+1, 2]
+            (normalised_x, shifted_y) per timestep.
+        sequence_lengths : list[int]
+            Length of each sequence (all equal to N+1).
+        targets : Tensor [B, N+1]
+            Normalised y at every timestep (last position = query target).
+        inputs : Tensor [B, N+1]
+            Normalised x at every timestep.
+        kernel_types : list[str]
+            Function label for each batch row (e.g. ``"linear_0.3"``).
+        """
+        print(f"Sampling batch for mode '{self._eval_mode}'...")
+        if self._eval_mode == "interpolation":
+            query_x = self.train_x  # [n_train]
+            # query y is the *clean* value even for training points
+            query_y_per_slope = self.train_y_clean  # [n_functions, n_train]
+        elif self._eval_mode == "extrapolation":
+            query_x = self.test_x  # [n_test]
+            query_y_per_slope = self.test_y  # [n_functions, n_test]
+        else:
+            raise ValueError(f"Unknown mode '{self._eval_mode}'. Use 'interpolation' or 'extrapolation'.")
+
+        n_query = len(query_x)
+        n_train = len(self.train_x)
+        seq_len = n_train + 1
+
+        # --- build x-sequences [n_query, seq_len] ----------------------
+        # Each row: all training x followed by one query x
+        x_seq = torch.cat(
+            [
+                self.train_x.unsqueeze(0).expand(n_query, -1),  # [n_query, n_train]
+                query_x.unsqueeze(1),  # [n_query, 1]
+            ],
+            dim=1,
+        )  # [n_query, n_train+1]
+
+        # --- build y-sequences per slope --------------------------------
+        all_x_seqs = []
+        all_y_seqs = []
+        kernel_types = []
+
+        for s_idx in range(self.n_functions):
+            slope_val = round(self.slopes[s_idx].item(), 1)
+            train_y = self.train_y_noisy[s_idx]  # [n_train] — noisy context
+            query_y = query_y_per_slope[s_idx]  # [n_query] — clean targets
+
+            # y_seq: [n_query, n_train+1]
+            y_seq = torch.cat(
+                [
+                    train_y.unsqueeze(0).expand(n_query, -1),  # [n_query, n_train]
+                    query_y.unsqueeze(1),  # [n_query, 1]
+                ],
+                dim=1,
+            )
+
+            all_x_seqs.append(x_seq)
+            all_y_seqs.append(y_seq)
+            kernel_types.extend([f"linear_{slope_val}"] * n_query)
+
+        # stack across slopes: [n_functions * n_query, seq_len]
+        all_x = torch.cat(all_x_seqs, dim=0)  # [B, seq_len]
+        all_y = torch.cat(all_y_seqs, dim=0)  # [B, seq_len]
+        batch_size = all_x.shape[0]
+
+        # --- normalise (per-row, matching training) ----------------------
+        x_norm = self._normalize_per_row(all_x, self.scale) if self.row_norm else all_x/100.0 - 0.5
+        y_norm = self._normalize_per_row(all_y, self.scale) if self.row_norm else all_y/100.0 - 0.5
+
+        # --- shifted targets (autoregressive input) ---------------------
+        shifted_y = torch.cat(
+            [torch.zeros(batch_size, 1, device=self.device), y_norm[:, :-1]], dim=1
+        )
+
+        # --- pack into [B, seq_len, 2] ---------------------------------
+        packed_inputs = torch.cat(
+            [x_norm.unsqueeze(2), shifted_y.unsqueeze(2)], dim=2
+        )  # [B, seq_len, 2]
+
+        sequence_lengths = [seq_len] * batch_size
+
+        return (
+            packed_inputs.to(self.device),
+            sequence_lengths,
+            y_norm,       # normalised targets at all timesteps (query target at [:, -1])
+            x_norm,       # normalised inputs
+            kernel_types,
+            all_x,        # raw inputs in [0, 100]
+            all_y,        # raw targets in [0, 100]
+        )
+
+    # ------------------------------------------------------------------
+    # Diagnostic plotting
+    # ------------------------------------------------------------------
+
+    def plot_stimuli(self, save_path=None):
+        """
+        Plot raw and normalised stimuli for visual inspection.
+
+        Produces one figure per slope with two subplots:
+          - Left:  raw domain ([0, 100]) — training (black) and test (orange)
+          - Right: normalised domain (as passed to ERMI) — same colour scheme
+
+        Parameters
+        ----------
+        save_path : str or Path, optional
+            Directory to save PNGs. If None, figures are shown interactively.
+        """
+        train_x_np = self.train_x.cpu().numpy()
+        test_x_np = self.test_x.cpu().numpy()
+
+        # pre-compute normalised sequences from a full batch so we
+        # inspect exactly what the model receives
+        n_train = len(train_x_np)
+
+        for s_idx in range(self.n_functions):
+            slope_val = round(self.slopes[s_idx].item(), 1)
+            offset_val = round(self.offset[s_idx].item(), 1)
+
+            # --- raw values ---
+            train_y_noisy_np = self.train_y_noisy[s_idx].cpu().numpy()
+            train_y_clean_np = self.train_y_clean[s_idx].cpu().numpy()
+            test_y_np = self.test_y[s_idx].cpu().numpy()
+
+            # --- normalised values (per-row, matching model input) ---
+            # interpolation row: context = train, query = one train point
+            # extrapolation row: context = train, query = one test point
+            # We build one row per query point, then extract the normalised
+            # context portion (same across rows) and query portion.
+
+            # -- interpolation queries --
+            x_interp = torch.cat(
+                [self.train_x.unsqueeze(0).expand(len(self.train_x), -1),
+                 self.train_x.unsqueeze(1)], dim=1)
+            y_interp = torch.cat(
+                [self.train_y_noisy[s_idx].unsqueeze(0).expand(len(self.train_x), -1),
+                 self.train_y_clean[s_idx].unsqueeze(1)], dim=1)
+            x_interp_norm = self._normalize_per_row(x_interp, self.scale).cpu().numpy() if self.row_norm else x_interp.cpu().numpy()/100.0 - 0.5
+            y_interp_norm = self._normalize_per_row(y_interp, self.scale).cpu().numpy() if self.row_norm else y_interp.cpu().numpy()/100.0 - 0.5
+
+            # -- extrapolation queries --
+            x_extrap = torch.cat(
+                [self.train_x.unsqueeze(0).expand(len(self.test_x), -1),
+                 self.test_x.unsqueeze(1)], dim=1)
+            y_extrap = torch.cat(
+                [self.train_y_noisy[s_idx].unsqueeze(0).expand(len(self.test_x), -1),
+                 self.test_y[s_idx].unsqueeze(1)], dim=1)
+            x_extrap_norm = self._normalize_per_row(x_extrap, self.scale).cpu().numpy() if self.row_norm else x_extrap.cpu().numpy()/100.0 - 0.5
+            y_extrap_norm = self._normalize_per_row(y_extrap, self.scale).cpu().numpy() if self.row_norm else y_extrap.cpu().numpy()/100.0 - 0.5
+
+            # For the normalised plot we use the first interp row for the
+            # training context (positions 0..N-1) and collect all query
+            # positions (position N) across their respective rows.
+            train_x_norm = x_interp_norm[0, :n_train]
+            train_y_norm = y_interp_norm[0, :n_train]
+            interp_query_x_norm = x_interp_norm[:, -1]      # one per interp query
+            interp_query_y_norm = y_interp_norm[:, -1]
+            extrap_query_x_norm = x_extrap_norm[:, -1]       # one per extrap query
+            extrap_query_y_norm = y_extrap_norm[:, -1]
+
+            # ---- figure ------------------------------------------------
+            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+            fig.suptitle(f"slope = {slope_val}  |  offset = {offset_val} (after x ≥ {self.c})",
+                         fontsize=13)
+
+            # -- left: raw domain --
+            ax = axes[0]
+            ax.scatter(train_x_np, train_y_noisy_np, c="black", s=30, zorder=3,
+                       label="train (noisy)")
+            ax.scatter(train_x_np, train_y_clean_np, c="black", s=30, marker="x",
+                       zorder=3, label="train (clean)")
+            ax.scatter(test_x_np, test_y_np, c="orange", s=30, zorder=3,
+                       label="test (clean)")
+            # ground-truth curve
+            xs_line = np.linspace(0, 100, 500)
+            ys_line = self._linear(slope_val, xs_line, offset_val)
+            ax.plot(xs_line, ys_line, "grey", lw=1, alpha=0.6, label="true fn")
+            # changepoint
+            ax.axvline(self.c, ls="--", c="grey", lw=0.8, alpha=0.5)
+            # segment shading
+            for lo, hi in self.train_segments:
+                ax.axvspan(lo, hi, color="black", alpha=0.04)
+            for lo, hi in self.test_segments:
+                ax.axvspan(lo, hi, color="orange", alpha=0.04)
+            ax.set_xlabel("x (raw)")
+            ax.set_ylabel("y (raw)")
+            ax.set_title("Human inputs [0, 100]")
+            ax.legend(fontsize=8, loc="upper left")
+
+            # -- right: normalised domain --
+            ax = axes[1]
+            ax.scatter(train_x_norm, train_y_norm, c="black", s=30, zorder=3,
+                       label="train context (noisy)")
+            ax.scatter(interp_query_x_norm, interp_query_y_norm,
+                       c="black", s=30, marker="x", zorder=3,
+                       label="interp query (clean)")
+            ax.scatter(extrap_query_x_norm, extrap_query_y_norm,
+                       c="orange", s=30, zorder=3,
+                       label="extrap query (clean)")
+            ax.set_xlabel("x (normalised)")
+            ax.set_ylabel("y (normalised)")
+            ax.set_title("ERMI inputs [-0.5, +0.5]")
+            ax.legend(fontsize=8, loc="upper left")
+
+            plt.tight_layout()
+
+            if save_path is not None:
+                out_dir = Path(save_path)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                fname = out_dir / f"stimuli_slope_{slope_val}.png"
+                fig.savefig(fname, dpi=150, bbox_inches="tight")
+                print(f"Saved {fname}")
+                plt.close(fig)
+            else:
+                plt.show()
+
+    # ------------------------------------------------------------------
+    # Human-experiment JSON export
+    # ------------------------------------------------------------------
+
+    def save_experiment_json(self, path="stimuli/experiment_functions.json"):
+        """
+        Write stimuli in the same format as ``generate_experimental_stimuli.py``::
+
+            [
+              {
+                "functionId": "linear_0.3",
+                "training": [{"input": 23, "output": 36.9}, ...],
+                "test":     [{"input": 5,  "output": 31.5}, ...]
+              },
+              ...
+            ]
+
+        Uses the *noisy* training outputs and *clean* test outputs, matching
+        what human participants would see.
+        """
+        train_x_np = self.train_x.cpu().numpy()
+        test_x_np = self.test_x.cpu().numpy()
+
+        all_stimuli = []
+        for s_idx in range(self.n_functions):
+            slope_val = round(self.slopes[s_idx].item(), 1)
+            train_y_np = self.train_y_noisy[s_idx].cpu().numpy()
+            test_y_np = self.test_y[s_idx].cpu().numpy()
+
+            training = [
+                {"input": int(x), "output": round(float(y), 1)}
+                for x, y in zip(train_x_np, train_y_np)
+            ]
+            test = [
+                {"input": int(x), "output": round(float(y), 1)}
+                for x, y in zip(test_x_np, test_y_np)
+            ]
+            all_stimuli.append(
+                {
+                    "functionId": f"linear_{slope_val}",
+                    "training": training,
+                    "test": test,
+                }
+            )
+
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w") as f:
+            json.dump(all_stimuli, f, indent=4)
+
+        return all_stimuli
+
 class EvaluateFunctionLearning(nn.Module):
     """
     Generate function learning tasks for evaluation of interpolation
