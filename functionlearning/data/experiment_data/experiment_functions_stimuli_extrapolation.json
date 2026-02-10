@@ -1,0 +1,590 @@
+[
+    {
+        "functionId": "linear_0.5",
+        "training": [
+            {
+                "input": 21,
+                "output": 9.7
+            },
+            {
+                "input": 22,
+                "output": 11.6
+            },
+            {
+                "input": 25,
+                "output": 13.6
+            },
+            {
+                "input": 28,
+                "output": 13.9
+            },
+            {
+                "input": 29,
+                "output": 13.7
+            },
+            {
+                "input": 32,
+                "output": 15.2
+            },
+            {
+                "input": 33,
+                "output": 17.2
+            },
+            {
+                "input": 36,
+                "output": 18.7
+            },
+            {
+                "input": 38,
+                "output": 19.5
+            },
+            {
+                "input": 42,
+                "output": 20.3
+            },
+            {
+                "input": 58,
+                "output": 79.2
+            },
+            {
+                "input": 62,
+                "output": 81.1
+            },
+            {
+                "input": 64,
+                "output": 82.2
+            },
+            {
+                "input": 69,
+                "output": 85.4
+            },
+            {
+                "input": 72,
+                "output": 86.2
+            },
+            {
+                "input": 73,
+                "output": 87.2
+            },
+            {
+                "input": 74,
+                "output": 87.1
+            },
+            {
+                "input": 75,
+                "output": 87.8
+            },
+            {
+                "input": 78,
+                "output": 89.6
+            },
+            {
+                "input": 80,
+                "output": 88.5
+            }
+        ],
+        "test": [
+            {
+                "input": 3,
+                "output": 1.5
+            },
+            {
+                "input": 4,
+                "output": 2.0
+            },
+            {
+                "input": 11,
+                "output": 5.5
+            },
+            {
+                "input": 14,
+                "output": 7.0
+            },
+            {
+                "input": 15,
+                "output": 7.5
+            },
+            {
+                "input": 47,
+                "output": 23.5
+            },
+            {
+                "input": 50,
+                "output": 75.0
+            },
+            {
+                "input": 51,
+                "output": 75.5
+            },
+            {
+                "input": 52,
+                "output": 76.0
+            },
+            {
+                "input": 54,
+                "output": 77.0
+            },
+            {
+                "input": 82,
+                "output": 91.0
+            },
+            {
+                "input": 89,
+                "output": 94.5
+            },
+            {
+                "input": 93,
+                "output": 96.5
+            },
+            {
+                "input": 94,
+                "output": 97.0
+            },
+            {
+                "input": 99,
+                "output": 99.5
+            }
+        ]
+    },
+    {
+        "functionId": "linear_0.7",
+        "training": [
+            {
+                "input": 21,
+                "output": 14.4
+            },
+            {
+                "input": 22,
+                "output": 14.9
+            },
+            {
+                "input": 25,
+                "output": 16.9
+            },
+            {
+                "input": 28,
+                "output": 19.3
+            },
+            {
+                "input": 29,
+                "output": 21.8
+            },
+            {
+                "input": 32,
+                "output": 21.5
+            },
+            {
+                "input": 33,
+                "output": 24.1
+            },
+            {
+                "input": 36,
+                "output": 23.5
+            },
+            {
+                "input": 38,
+                "output": 26.3
+            },
+            {
+                "input": 42,
+                "output": 29.6
+            },
+            {
+                "input": 58,
+                "output": 71.2
+            },
+            {
+                "input": 62,
+                "output": 74.1
+            },
+            {
+                "input": 64,
+                "output": 75.6
+            },
+            {
+                "input": 69,
+                "output": 78.0
+            },
+            {
+                "input": 72,
+                "output": 79.9
+            },
+            {
+                "input": 73,
+                "output": 82.0
+            },
+            {
+                "input": 74,
+                "output": 81.6
+            },
+            {
+                "input": 75,
+                "output": 81.2
+            },
+            {
+                "input": 78,
+                "output": 83.5
+            },
+            {
+                "input": 80,
+                "output": 85.1
+            }
+        ],
+        "test": [
+            {
+                "input": 3,
+                "output": 2.1
+            },
+            {
+                "input": 4,
+                "output": 2.8
+            },
+            {
+                "input": 11,
+                "output": 7.7
+            },
+            {
+                "input": 14,
+                "output": 9.8
+            },
+            {
+                "input": 15,
+                "output": 10.5
+            },
+            {
+                "input": 47,
+                "output": 32.9
+            },
+            {
+                "input": 50,
+                "output": 65.0
+            },
+            {
+                "input": 51,
+                "output": 65.7
+            },
+            {
+                "input": 52,
+                "output": 66.4
+            },
+            {
+                "input": 54,
+                "output": 67.8
+            },
+            {
+                "input": 82,
+                "output": 87.4
+            },
+            {
+                "input": 89,
+                "output": 92.3
+            },
+            {
+                "input": 93,
+                "output": 95.1
+            },
+            {
+                "input": 94,
+                "output": 95.8
+            },
+            {
+                "input": 99,
+                "output": 99.3
+            }
+        ]
+    },
+    {
+        "functionId": "linear_-0.5",
+        "training": [
+            {
+                "input": 21,
+                "output": 90.0
+            },
+            {
+                "input": 22,
+                "output": 89.1
+            },
+            {
+                "input": 25,
+                "output": 88.2
+            },
+            {
+                "input": 28,
+                "output": 85.6
+            },
+            {
+                "input": 29,
+                "output": 85.7
+            },
+            {
+                "input": 32,
+                "output": 84.6
+            },
+            {
+                "input": 33,
+                "output": 83.2
+            },
+            {
+                "input": 36,
+                "output": 82.5
+            },
+            {
+                "input": 38,
+                "output": 80.3
+            },
+            {
+                "input": 42,
+                "output": 78.6
+            },
+            {
+                "input": 58,
+                "output": 20.6
+            },
+            {
+                "input": 62,
+                "output": 17.8
+            },
+            {
+                "input": 64,
+                "output": 18.5
+            },
+            {
+                "input": 69,
+                "output": 15.0
+            },
+            {
+                "input": 72,
+                "output": 14.0
+            },
+            {
+                "input": 73,
+                "output": 14.0
+            },
+            {
+                "input": 74,
+                "output": 13.4
+            },
+            {
+                "input": 75,
+                "output": 13.2
+            },
+            {
+                "input": 78,
+                "output": 10.9
+            },
+            {
+                "input": 80,
+                "output": 9.6
+            }
+        ],
+        "test": [
+            {
+                "input": 3,
+                "output": 98.5
+            },
+            {
+                "input": 4,
+                "output": 98.0
+            },
+            {
+                "input": 11,
+                "output": 94.5
+            },
+            {
+                "input": 14,
+                "output": 93.0
+            },
+            {
+                "input": 15,
+                "output": 92.5
+            },
+            {
+                "input": 47,
+                "output": 76.5
+            },
+            {
+                "input": 50,
+                "output": 25.0
+            },
+            {
+                "input": 51,
+                "output": 24.5
+            },
+            {
+                "input": 52,
+                "output": 24.0
+            },
+            {
+                "input": 54,
+                "output": 23.0
+            },
+            {
+                "input": 82,
+                "output": 9.0
+            },
+            {
+                "input": 89,
+                "output": 5.5
+            },
+            {
+                "input": 93,
+                "output": 3.5
+            },
+            {
+                "input": 94,
+                "output": 3.0
+            },
+            {
+                "input": 99,
+                "output": 0.5
+            }
+        ]
+    },
+    {
+        "functionId": "linear_-0.7",
+        "training": [
+            {
+                "input": 21,
+                "output": 85.2
+            },
+            {
+                "input": 22,
+                "output": 82.9
+            },
+            {
+                "input": 25,
+                "output": 81.1
+            },
+            {
+                "input": 28,
+                "output": 79.1
+            },
+            {
+                "input": 29,
+                "output": 78.7
+            },
+            {
+                "input": 32,
+                "output": 78.0
+            },
+            {
+                "input": 33,
+                "output": 76.0
+            },
+            {
+                "input": 36,
+                "output": 74.4
+            },
+            {
+                "input": 38,
+                "output": 74.7
+            },
+            {
+                "input": 42,
+                "output": 70.2
+            },
+            {
+                "input": 58,
+                "output": 30.1
+            },
+            {
+                "input": 62,
+                "output": 25.7
+            },
+            {
+                "input": 64,
+                "output": 25.0
+            },
+            {
+                "input": 69,
+                "output": 20.7
+            },
+            {
+                "input": 72,
+                "output": 19.3
+            },
+            {
+                "input": 73,
+                "output": 19.7
+            },
+            {
+                "input": 74,
+                "output": 16.5
+            },
+            {
+                "input": 75,
+                "output": 17.9
+            },
+            {
+                "input": 78,
+                "output": 15.6
+            },
+            {
+                "input": 80,
+                "output": 13.4
+            }
+        ],
+        "test": [
+            {
+                "input": 3,
+                "output": 97.9
+            },
+            {
+                "input": 4,
+                "output": 97.2
+            },
+            {
+                "input": 11,
+                "output": 92.3
+            },
+            {
+                "input": 14,
+                "output": 90.2
+            },
+            {
+                "input": 15,
+                "output": 89.5
+            },
+            {
+                "input": 47,
+                "output": 67.1
+            },
+            {
+                "input": 50,
+                "output": 35.0
+            },
+            {
+                "input": 51,
+                "output": 34.3
+            },
+            {
+                "input": 52,
+                "output": 33.6
+            },
+            {
+                "input": 54,
+                "output": 32.2
+            },
+            {
+                "input": 82,
+                "output": 12.6
+            },
+            {
+                "input": 89,
+                "output": 7.7
+            },
+            {
+                "input": 93,
+                "output": 4.9
+            },
+            {
+                "input": 94,
+                "output": 4.2
+            },
+            {
+                "input": 99,
+                "output": 0.7
+            }
+        ]
+    }
+]
