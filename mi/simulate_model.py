@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from envs import Binz2022, Badham2017, Devraj2022, Little2022, SyntheticFunctionlearningTask, DeLosh1997, EvaluateFunctionLearning, HandCraftedFunctions
+from envs import Binz2022, Badham2017, Devraj2022, Little2022, SyntheticFunctionlearningTask, DeLosh1997, EvaluateFunctionLearning, HandCraftedFunctions, ExperimentFunctions
 import argparse
 from tqdm import tqdm
 from scipy.optimize import differential_evolution, minimize
@@ -10,8 +10,11 @@ import re
 # import ivon
 from model_utils import parse_model_path
 from torch.distributions import Bernoulli
-sys.path.insert(0, '/u/ajagadish/ermi/mi')
-SYS_PATH = '/u/ajagadish/ermi'
+import os
+from dotenv import load_dotenv
+load_dotenv()
+# sys.path.insert(0, '/scratch/gpfs/GRIFFITHS/aj9225/meta-learning-ecological-priors-from-llms/mi')
+SYS_PATH = os.getenv('SYS_PATH')
 
 def compute_mse(x, y, axis=1, per_trial=False):
     return ((x - y) ** 2).mean(axis=axis) if not per_trial else ((x - y) ** 2)
@@ -109,7 +112,10 @@ def compute_mses_human_predictions_under_model(env=None, model_path=None, partic
 
         # env setup: sample batch from environment and unpack
         if kwargs.get('synthetic'):
-            packed_inputs, sequence_lengths, targets, inputs, kernel_choices = env.sample_batch()
+            outputs = env.sample_batch()
+            packed_inputs, sequence_lengths, targets, inputs, kernel_choices = outputs[:5]
+            raw_inputs = outputs[5] if len(outputs) > 5 else None
+            raw_targets = outputs[6] if len(outputs) > 6 else None
 
             # get model preds
             model_preds = model(packed_inputs.float().to(device), sequence_lengths)
@@ -119,7 +125,7 @@ def compute_mses_human_predictions_under_model(env=None, model_path=None, partic
             model_error = compute_mse(model_preds, targets.unsqueeze(2))
             per_trial_model_error = compute_mse(model_preds.squeeze(), targets, per_trial=True)
             
-            return model_preds, model_error, per_trial_model_error, targets, inputs, kernel_choices
+            return model_preds, model_error, per_trial_model_error, targets, inputs, kernel_choices, raw_inputs, raw_targets
         
         else:
 
@@ -177,24 +183,52 @@ def sample_model(args):
         env = HandCraftedFunctions(max_steps=20, scale=0.25)
         env.num_samples = 1
         task_features = {'model_max_steps': 25, 'synthetic': True}
+    elif args.task_name == 'experiment_functions_interpolation':
+        env = ExperimentFunctions(
+            n_train_per_seg=10, n_test_per_seg=5,
+            noise_std=1.0, seed=42, scale=0.50,
+            save_data=True,
+            output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/experiment_functions_stimuli_interpolation.json",
+        )
+        env.num_samples = 1
+        env._eval_mode = 'interpolation'
+        task_features = {'model_max_steps': 25, 'synthetic': True}
+    elif args.task_name == 'experiment_functions_extrapolation':
+        env = ExperimentFunctions(
+            n_train_per_seg=10, n_test_per_seg=5,
+            noise_std=1.0, seed=42, scale=0.50,
+            save_data=True,
+            output_path=f"{SYS_PATH}/functionlearning/data/experiment_data/experiment_functions_stimuli_extrapolation.json",
+        )
+        env.num_samples = 1
+        env._eval_mode = 'extrapolation'
+        task_features = {'model_max_steps': 25, 'synthetic': True}
     else:
         raise NotImplementedError
    
     participants = env.data.participant.unique() if task_features.get('human_data') else range(env.num_samples)
     
-    if args.task_name in ['little2022', 'syntheticfunctionlearning', 'delosh1997', 'evaluatefunctionlearning', 'kwantes2006', 'handcrafted_functions']:
+    if args.task_name in ['little2022', 'syntheticfunctionlearning', 'delosh1997', 'evaluatefunctionlearning', 'kwantes2006', 'handcrafted_functions',
+                          'experiment_functions_interpolation', 'experiment_functions_extrapolation']:
 
-        model_errors, per_trial_model_errors, model_preds, targets, human_preds, ground_truth_functions = [], [], [], [], [], []
+        model_errors, per_trial_model_errors, model_preds, targets, human_preds, ground_truth_functions, raw_inputs_list, raw_targets_list = [], [], [], [], [], [], [], []
         for participant in participants:
-            model_pred, model_error, per_trial_model_error, target, human_pred, ground_truth_function = compute_mses_human_predictions_under_model(env=env, model_path=model_path, participant=participant, shuffle_trials=True,
+            results = compute_mses_human_predictions_under_model(env=env, model_path=model_path, participant=participant, shuffle_trials=True,
                                                                                                              paired=args.paired, constraint=args.constraint, **task_features)
+            model_pred, model_error, per_trial_model_error, target, human_pred, ground_truth_function = results[:6]
+            raw_inp = results[6] if len(results) > 6 else None
+            raw_tgt = results[7] if len(results) > 7 else None
             model_preds.append(model_pred)
             model_errors.append(model_error)
             per_trial_model_errors.append(per_trial_model_error)
             targets.append(target)
             human_preds.append(human_pred)
             ground_truth_functions.append(ground_truth_function)
-        return np.stack(model_preds), np.stack(model_errors), np.stack(per_trial_model_errors), np.stack(targets), np.stack(human_preds), np.stack(ground_truth_functions)
+            raw_inputs_list.append(raw_inp)
+            raw_targets_list.append(raw_tgt)
+        raw_inputs_out = np.stack(raw_inputs_list) if raw_inputs_list[0] is not None else None
+        raw_targets_out = np.stack(raw_targets_list) if raw_targets_list[0] is not None else None
+        return np.stack(model_preds), np.stack(model_errors), np.stack(per_trial_model_errors), np.stack(targets), np.stack(human_preds), np.stack(ground_truth_functions), raw_inputs_out, raw_targets_out
         
     elif args.task_name in ['badham2017', 'devraj2022', 'binz2022']:
 
@@ -264,11 +298,19 @@ if __name__ == '__main__':
         
     
     if args.paradigm == 'functionlearning':
-        model_preds, model_errors, per_trial_model_errors, targets, human_preds, ground_truth_functions = sample_model(args)
+        results = sample_model(args)
+        model_preds, model_errors, per_trial_model_errors, targets, human_preds, ground_truth_functions = results[:6]
+        raw_inputs = results[6] if len(results) > 6 else None
+        raw_targets = results[7] if len(results) > 7 else None
         print('saving')
         # save list of results
-        np.savez(save_path, model_preds=model_preds, model_errors=model_errors, per_trial_model_errors=per_trial_model_errors, targets=targets, 
-                 human_preds=human_preds, ground_truth_functions=ground_truth_functions)
+        save_dict = dict(model_preds=model_preds, model_errors=model_errors, per_trial_model_errors=per_trial_model_errors, targets=targets, 
+                         human_preds=human_preds, ground_truth_functions=ground_truth_functions)
+        if raw_inputs is not None:
+            save_dict['raw_inputs'] = raw_inputs
+        if raw_targets is not None:
+            save_dict['raw_targets'] = raw_targets
+        np.savez(save_path, **save_dict)
     else:
         model_accuracy, per_trial_model_accuracy, human_accuracy, per_trial_human_accuracy, model_coefficients, expected_log_likelihood, l2_norms  = sample_model(args)
         print('saving')
