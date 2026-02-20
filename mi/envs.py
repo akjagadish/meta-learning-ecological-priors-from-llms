@@ -1567,9 +1567,9 @@ class ExperimentFunctions(nn.Module):
         seed: int = 42,
         scale: float = 0.5,
         c: float = 50.0,
-        save_data: bool = False,
+        save_data: bool = True,
         output_path: str = "stimuli/experiment_functions.json",
-        figures_output_path: str = "plots/",
+        figures_output_path: str = "plots",
         device: str = "cpu",
         row_norm: bool = False,
     ):
@@ -1582,6 +1582,7 @@ class ExperimentFunctions(nn.Module):
         self.input_range = (0.0, 100.0)
         self.output_range = (0.0, 100.0)
         self.row_norm = row_norm
+        self.figures_output_path = figures_output_path
 
         # experiment design parameters
         self.n_train_per_seg = n_train_per_seg
