@@ -175,3 +175,4 @@ core*
 wandb/*
 TODO
 ermi/*
+.DS_Store
