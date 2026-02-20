@@ -1383,6 +1383,124 @@ class HandCraftedFunctions(nn.Module):
         intercepts = self.lin_intercepts[idxs].unsqueeze(1) if not linpos else self.pos_neg_intercepts[idxs].unsqueeze(1)
         return -weights * x + intercepts
 
+    # def negative_linear(self, x, weight, intercept):
+    #     return -weight[:, None] * x + intercept[:, None]
+
+    def neg_pos_kink(self, x, c=0.5):
+        """
+        Piecewise linear: negative slope for x < c, positive slope for x > c.
+        Uses two sampled slopes from lin_weights, like other functions.
+        x: [T]
+        returns: [n_funcs, T]
+        """
+        T = x.shape[0]
+        idxs = torch.arange(len(self.lin_weights), device=self.device)
+
+        # sample two magnitudes from lin_weights
+        s1 = self.lin_weights[idxs].unsqueeze(1)/10  
+        w2_idxs = torch.randperm(len(self.lin_weights))   
+        while (w2_idxs == idxs).any():
+            w2_idxs = torch.randperm(len(self.lin_weights))                          # [n,1]
+        s2 = self.lin_weights[w2_idxs].unsqueeze(1)/10  # [n,1]
+        
+        # make them explicitly neg and pos
+        w_neg = -s1      # slope for x < c
+        w_pos = +s2      # slope for x > c
+
+        # intercept so left branch passes through some base point (e.g. origin)
+        b = self.lin_intercepts[idxs].unsqueeze(1)                               # [n,1]
+
+        x_row = x.unsqueeze(0)                                                   # [1,T]
+        relu_part = torch.relu(x_row - c)                                        # [1,T]
+
+        # write as: w_neg*x + b + (w_pos - w_neg)*ReLU(x-c)
+        extra_slope = (w_pos) #- w_neg)                                            # [n,1]
+        return w_neg * x_row + b + extra_slope * relu_part
+
+    def pos_neg_kink(self, x, c=0.5):
+        """
+        Piecewise linear: positive slope for x < c, negative slope for x > c.
+        Uses two sampled slopes from lin_weights, like other functions.
+        x: [T]
+        returns: [n_funcs, T]
+        """
+        T = x.shape[0]
+        idxs = torch.arange(len(self.lin_weights), device=self.device)
+
+        # sample two magnitudes from lin_weights
+        s1 = self.lin_weights[idxs].unsqueeze(1)/10     
+        w2_idxs = torch.randperm(len(self.lin_weights))
+        while (w2_idxs == idxs).any():
+            w2_idxs = torch.randperm(len(self.lin_weights))                          # [n,1]
+        s2 = self.lin_weights[w2_idxs].unsqueeze(1)/10  # [n,1]
+        
+        # make them explicitly pos and neg
+        w_pos = +s1      # slope for x < c
+        w_neg = -s2      # slope for x > c
+
+        # intercept so left branch passes through some base point (e.g. origin)
+        b = self.lin_intercepts[idxs].unsqueeze(1)                               # [n,1]
+
+        x_row = x.unsqueeze(0)                                                   # [1,T]
+        relu_part = torch.relu(x_row - c)                                        # [1,T]
+
+        # write as: w_pos*x + b + (w_neg - w_pos)*ReLU(x-c)
+        extra_slope = w_neg #- w_pos)                                            # [n,1]
+        return w_pos * x_row + b + extra_slope * relu_part
+
+    def pos_pos_kink(self, x, c=0.5):
+        """
+        Piecewise linear: positive slope for x < c, positive slope for x > c.
+        Uses two sampled slopes from lin_weights, like other functions.
+        x: [T]
+        returns: [n_funcs, T]
+        """
+        T = x.shape[0]
+        idxs = torch.arange(len(self.lin_weights), device=self.device)
+
+        # sample two magnitudes from lin_weights
+        w1 = self.lin_weights[idxs].unsqueeze(1)*5                                # [n,1]
+        w2_idxs = torch.randperm(len(self.lin_weights))
+        while (w2_idxs == idxs).any():
+            w2_idxs = torch.randperm(len(self.lin_weights))                          # [n,1]
+        w2 = self.lin_weights[w2_idxs].unsqueeze(1)*5  # [n,1]
+
+        # intercept so left branch passes through some base point (e.g. origin)
+        b = self.lin_intercepts[idxs].unsqueeze(1)                               # [n,1]
+
+        x_row = x.unsqueeze(0)                                                   # [1,T]
+        relu_part = torch.relu(x_row - c)                                        # [1,T]
+
+        # write as: w1*x + b + (w2 - w1)*ReLU(x-c)
+        extra_slope = w2 #- w1)                                                  # [n,1]
+        return w1 * x_row + b + extra_slope * relu_part
+
+    def neg_neg_kink(self, x, c=0.5):
+        """
+        Piecewise linear: negative slope for x < c, negative slope for x > c.
+        Uses two sampled slopes from lin_weights, like other functions.
+        x: [T]
+        returns: [n_funcs, T]
+        """
+        T = x.shape[0]
+        idxs = torch.arange(len(self.lin_weights), device=self.device)
+
+        # sample two magnitudes from lin_weights
+        w1 = -self.lin_weights[idxs].unsqueeze(1)*10                                # [n,1]
+        w2_idxs = torch.randperm(len(self.lin_weights))
+        while (w2_idxs == idxs).any():
+            w2_idxs = torch.randperm(len(self.lin_weights))                          # [n,1]
+        w2 = -self.lin_weights[w2_idxs].unsqueeze(1)*10  # [n,1]
+        # intercept so left branch passes through some base point (e.g. origin)
+        b = self.lin_intercepts[idxs].unsqueeze(1)                               # [n,1]
+
+        x_row = x.unsqueeze(0)                                                   # [1,T]
+        relu_part = torch.relu(x_row - c)                                        # [1,T]
+
+        # write as: w1*x + b + (w2 - w1)*ReLU(x-c)
+        extra_slope = w2 #- w1)                                                  # [n,1]
+        return w1 * x_row + b + extra_slope * relu_part
+
     def sample_function(self, function, x):
 
         if function == 'periodic':
@@ -1437,6 +1555,14 @@ class HandCraftedFunctions(nn.Module):
             self.lin_intercepts = self.lin_intercepts[torch.randperm(len(self.lin_intercepts))]
             neg_linear2 = self.negative_linear(x[int(self.max_steps/2):]).to(self.device)
             targets = torch.cat((neg_linear1, neg_linear2), dim=1)
+        elif function == 'pos_pos_kink':
+            targets = self.pos_pos_kink(x).to(self.device)
+        elif function == 'neg_pos_kink':
+            targets = self.neg_pos_kink(x).to(self.device)
+        elif function == 'pos_neg_kink':
+            targets = self.pos_neg_kink(x).to(self.device)
+        elif function == 'neg_neg_kink':
+            targets = self.neg_neg_kink(x).to(self.device).to(self.device)
         else:
             raise ValueError(f"Unknown function type: {self.function}")
 
@@ -1445,13 +1571,24 @@ class HandCraftedFunctions(nn.Module):
 
     def sample_batch(self, function=None):
         
-        x = torch.cat((torch.linspace(0., 0.5, self.max_steps//2, device=self.device), torch.linspace(0.5, 1.0, self.max_steps//2, device=self.device)), dim=0) #[torch.randperm(self.max_steps)]
+        # x = torch.cat((torch.linspace(0., 0.5, self.max_steps//2, device=self.device), torch.linspace(0.5, 1.0, self.max_steps//2, device=self.device)), dim=0) #[torch.randperm(self.max_steps)]
+        # x = torch.linspace(-1, 1, self.max_steps, device=self.device)##working
+        x = torch.linspace(0, 100, self.max_steps, device=self.device)
         if function is None:
-            kernel_types =  ['pos_linear', 'neg_linear', 'periodic', 
+            kernel_types =  [
+                             'pos_linear', 
+                             'neg_linear',
                              'pos_neg_linear', 'neg_pos_linear', \
-                             'pos_linear_periodic', 'periodic_pos_linear', 'neg_linear_periodic',\
+                             'periodic', 'pos_linear_periodic', 
+                             'periodic_pos_linear', 'neg_linear_periodic',\
                              'periodic_neg_linear', 'periodic_periodic', 
-                             'pos_pos_linear', 'neg_neg_linear']
+                             'pos_pos_linear', 
+                             'pos_pos_kink', 
+                             'neg_neg_linear',
+                             'neg_neg_kink',
+                             'kink_linear_pos_neg', 
+                             'neg_pos_kink', 'pos_neg_kink'
+                             ]
             # prior_probs = [1] * len(kernel_types)
             # kernel_choices = np.random.choice(kernel_types, size=len(kernel_types), p=np.array(prior_probs) / sum(prior_probs))
             for idx, function in enumerate(kernel_types):
@@ -1506,9 +1643,10 @@ class HandCraftedFunctions(nn.Module):
                 data_dict['target'].append(targets[idx, step].item())
         df = pd.DataFrame(data_dict)
         df.to_csv('handcrafted_function_data.csv', index=False)
-    
-class EvaluateFunctionLearning(nn.Module):
-    """
+
+
+
+
 
 class ExperimentFunctions(nn.Module):
     """
